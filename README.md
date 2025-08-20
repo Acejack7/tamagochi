@@ -143,4 +143,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-Made with ❤️ by [Acejack7](https://github.com/Acejack7)
+Made with ❤️ by Cursor, led by [Acejack7](https://github.com/Acejack7)
