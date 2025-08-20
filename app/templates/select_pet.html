@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Choose Your Pet - Tamagochi</title>
+	<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+</head>
+<body>
+	<header class="site-header">
+		<h1>Choose Your Pet</h1>
+		<p class="subtitle">Select your companion</p>
+	</header>
+	
+	<main>
+		{% with messages = get_flashed_messages(with_categories=true) %}
+			{% if messages %}
+				<ul class="flashes">
+					{% for category, message in messages %}
+						<li class="flash {{ category }}">{{ message }}</li>
+					{% endfor %}
+				</ul>
+			{% endif %}
+		{% endwith %}
+		
+		<form method="post" class="pet-select-form">
+			<div class="pet-options">
+				{% for pet_type in pet_types %}
+				<label class="pet-option">
+					<input type="radio" name="pet_type" value="{{ pet_type }}" required />
+					<div class="pet-preview">
+						<div class="pet-circle {{ pet_type }}"></div>
+						<span class="pet-name">{{ pet_type.title() }}</span>
+					</div>
+				</label>
+				{% endfor %}
+			</div>
+			
+			<div class="name-input">
+				<label>
+					<span>Pet Name</span>
+					<input type="text" name="pet_name" required autofocus placeholder="Enter a name..." />
+				</label>
+			</div>
+			
+			<button type="submit">Adopt Pet</button>
+		</form>
+	</main>
+</body>
+</html>

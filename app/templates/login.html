@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Login - Tamagochi</title>
+	<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+</head>
+<body>
+	<header class="site-header">
+		<h1>Login</h1>
+	</header>
+	<main>
+		{% with messages = get_flashed_messages(with_categories=true) %}
+			{% if messages %}
+				<ul class="flashes">
+					{% for category, message in messages %}
+						<li class="flash {{ category }}">{{ message }}</li>
+					{% endfor %}
+				</ul>
+			{% endif %}
+		{% endwith %}
+		<form method="post" class="auth-form">
+			<label>
+				<span>Username</span>
+				<input type="text" name="username" required autofocus />
+			</label>
+			<label>
+				<span>Password</span>
+				<input type="password" name="password" required />
+			</label>
+			<label class="remember">
+				<input type="checkbox" name="remember" /> Remember me
+			</label>
+			<button type="submit">Login</button>
+			<p>Don't have an account? <a href="{{ url_for('auth.register') }}">Register</a></p>
+		</form>
+	</main>
+</body>
+</html>
+
+
