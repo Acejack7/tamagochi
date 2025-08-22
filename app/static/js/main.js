@@ -15,8 +15,31 @@ const config = {
 let pet;
 let petType = 'hedgehog'; // default, will be updated from server
 let gameScene;
+let currentPetState = 'idle';
 
-// Pet colors based on type
+// Pet sprite mappings
+const PET_SPRITES = {
+	hedgehog: {
+		idle: 'hedgehog_idle',
+		happy: 'hedgehog_happy',
+		hungry: 'hedgehog_hungry',
+		sleeping: 'hedgehog_sleeping'
+	},
+	hamster: {
+		idle: 'hamster_idle',
+		happy: 'hamster_happy',
+		hungry: 'hamster_hungry',
+		sleeping: 'hamster_sleeping'
+	},
+	squirrel: {
+		idle: 'squirrel_idle',
+		happy: 'squirrel_happy',
+		hungry: 'squirrel_hungry',
+		sleeping: 'squirrel_sleeping'
+	}
+};
+
+// Pet colors based on type (fallback for missing sprites)
 const PET_COLORS = {
 	hedgehog: 0x8b4513, // brown
 	hamster: 0xdaa520,  // golden
@@ -24,7 +47,19 @@ const PET_COLORS = {
 };
 
 function preload() {
-	// No external assets for now; we'll generate textures dynamically
+	console.log('Preloading sprites...');
+	
+	// Load squirrel sprites
+	this.load.image('squirrel_idle', '/static/sprites/squirrel_idle.png');
+	this.load.image('squirrel_happy', '/static/sprites/squirrel_happy.png');
+	this.load.image('squirrel_hungry', '/static/sprites/squirrel_hungry.png');
+	this.load.image('squirrel_sleeping', '/static/sprites/squirrel_sleeping.png');
+	
+	console.log('Squirrel sprites loaded');
+	
+	// TODO: Load other pet sprites when available
+	// this.load.image('hedgehog_idle', '/static/sprites/hedgehog_idle.png');
+	// this.load.image('hamster_idle', '/static/sprites/hamster_idle.png');
 }
 
 function create() {
@@ -32,33 +67,42 @@ function create() {
 	
 	// Get pet type from the page (if available)
 	const petTypeElement = document.querySelector('h1');
-	if (petTypeElement && petTypeElement.textContent.includes('hedgehog')) {
+	console.log('Pet type element text:', petTypeElement ? petTypeElement.textContent : 'No h1 found');
+	
+	// Convert to lowercase for case-insensitive comparison
+	const h1Text = petTypeElement ? petTypeElement.textContent.toLowerCase() : '';
+	
+	if (h1Text.includes('hedgehog')) {
 		petType = 'hedgehog';
-	} else if (petTypeElement && petTypeElement.textContent.includes('hamster')) {
+	} else if (h1Text.includes('hamster')) {
 		petType = 'hamster';
-	} else if (petTypeElement && petTypeElement.textContent.includes('squirrel')) {
+	} else if (h1Text.includes('squirrel')) {
 		petType = 'squirrel';
 	}
+	
+	console.log('Detected pet type:', petType);
 
-	// Create pet texture based on type
-	const graphics = this.add.graphics({ fillStyle: { color: PET_COLORS[petType] || PET_COLORS.hedgehog } });
-	const radius = 60;
-	graphics.fillCircle(radius, radius, radius);
-	graphics.generateTexture('pet', radius * 2, radius * 2);
-	graphics.destroy();
+	// Create pet based on type
+	if (petType === 'squirrel') {
+		// Use real squirrel sprite
+		console.log('Creating squirrel sprite...');
+		pet = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'squirrel_idle');
+		pet.setScale(1);
+		console.log('Squirrel sprite created:', pet);
+	} else {
+		// Fallback to colored circle for other pets
+		console.log('Creating fallback circle for:', petType);
+		const graphics = this.add.graphics({ fillStyle: { color: PET_COLORS[petType] || PET_COLORS.hedgehog } });
+		const radius = 60;
+		graphics.fillCircle(radius, radius, radius);
+		graphics.generateTexture('pet', radius * 2, radius * 2);
+		graphics.destroy();
 
-	pet = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'pet');
-	pet.setScale(1);
+		pet = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'pet');
+		pet.setScale(1);
+	}
 
-	// Simple breathing animation
-	this.tweens.add({
-		targets: pet,
-		scale: 1.06,
-		duration: 900,
-		yoyo: true,
-		repeat: -1,
-		ease: 'Sine.easeInOut'
-	});
+	// No breathing animation for now - keeping pets at consistent scale
 
 	// Set up action button handlers
 	setupActionButtons();
@@ -112,6 +156,16 @@ function setupActionButtons() {
 			handleAction(action);
 		});
 	});
+	
+	// Setup test buttons
+	const testButtons = document.querySelectorAll('.test-btn');
+	
+	testButtons.forEach(button => {
+		button.addEventListener('click', function() {
+			const testType = this.dataset.test;
+			handleTestAction(testType);
+		});
+	});
 }
 
 async function handleAction(action) {
@@ -138,18 +192,8 @@ async function handleAction(action) {
 		const data = await response.json();
 		
 		if (data.success) {
-			// Update only the specific stat that changed
-			const actionToStat = {
-				'feed': 'hunger',
-				'play': 'happiness', 
-				'bath': 'cleanliness',
-				'sleep': 'energy'
-			};
-			
-			const changedStat = actionToStat[action];
-			if (changedStat && data.stats[changedStat] !== undefined) {
-				updateSingleStat(changedStat, data.stats[changedStat]);
-			}
+			// Update all stats and pet appearance
+			updateStatsDisplay(data.stats);
 			
 			// Show success feedback
 			showActionFeedback(action, true);
@@ -159,6 +203,49 @@ async function handleAction(action) {
 	} catch (error) {
 		console.error('Action failed:', error);
 		showActionFeedback(action, false, 'Network error');
+	} finally {
+		// Re-enable button
+		if (button) {
+			button.disabled = false;
+			button.style.opacity = '1';
+		}
+	}
+}
+
+async function handleTestAction(testType) {
+	// Disable button during action
+	const button = document.querySelector(`[data-test="${testType}"]`);
+	if (button) {
+		button.disabled = true;
+		button.style.opacity = '0.6';
+	}
+	
+	try {
+		// Send AJAX request to reduce stats
+		const response = await fetch('/api/pet/test-action', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({ test_action: testType })
+		});
+		
+		const data = await response.json();
+		
+		if (data.success) {
+			// Update the specific stat that changed
+			if (data.stats) {
+				updateStatsDisplay(data.stats);
+			}
+			
+			// Show success feedback
+			showActionFeedback(testType.replace('-', ' '), true);
+		} else {
+			showActionFeedback(testType.replace('-', ' '), false, data.error);
+		}
+	} catch (error) {
+		console.error('Test action failed:', error);
+		showActionFeedback(testType.replace('-', ' '), false, 'Network error');
 	} finally {
 		// Re-enable button
 		if (button) {
@@ -224,17 +311,10 @@ function playActionAnimation(action) {
 			break;
 	}
 	
-	// Resume breathing animation after action
+	// Reset to normal scale after action
 	setTimeout(() => {
 		if (pet) {
-			gameScene.tweens.add({
-				targets: pet,
-				scale: 1.06,
-				duration: 900,
-				yoyo: true,
-				repeat: -1,
-				ease: 'Sine.easeInOut'
-			});
+			pet.setScale(1);
 		}
 	}, 1000);
 }
@@ -268,6 +348,69 @@ function updateStatsDisplay(stats) {
 			}
 		}
 	});
+	
+	// Update pet appearance based on stats
+	updatePetAppearance(stats);
+}
+
+function updatePetAppearance(stats) {
+	if (!pet || petType !== 'squirrel') return;
+	
+	// Determine pet state based on stats
+	let newState = 'idle';
+	
+	// Priority order: sleeping > hungry > happy > idle
+	
+	// 1. Check if energy is lower than 30 (sleeping takes priority)
+	if (stats.energy < 30) {
+		newState = 'sleeping';
+	}
+	// 2. Check if hunger is lower than 50 (but energy is 30 or higher)
+	else if (stats.hunger < 50) {
+		newState = 'hungry';
+	}
+	// 3. Check if ALL stats are 80 or higher (happy state)
+	else if (stats.hunger >= 80 && stats.happiness >= 80 && stats.cleanliness >= 80 && stats.energy >= 80) {
+		newState = 'happy';
+	}
+	// 4. Default to idle state
+	else {
+		newState = 'idle';
+	}
+	
+	// Only change if state actually changed
+	if (newState !== currentPetState) {
+		changePetState(newState);
+	}
+}
+
+function changePetState(newState) {
+	if (!pet || petType !== 'squirrel') {
+		console.log('Cannot change pet state:', { pet: !!pet, petType, newState });
+		return;
+	}
+	
+	console.log('Changing pet state from', currentPetState, 'to', newState);
+	currentPetState = newState;
+	const spriteKey = PET_SPRITES[petType][newState];
+	
+	console.log('Sprite key:', spriteKey, 'Texture exists:', gameScene.textures.exists(spriteKey));
+	
+	if (spriteKey && gameScene.textures.exists(spriteKey)) {
+		pet.setTexture(spriteKey);
+		console.log('Texture changed to:', spriteKey);
+		
+		// Add a subtle transition effect
+		pet.setAlpha(0.8);
+		gameScene.tweens.add({
+			targets: pet,
+			alpha: 1,
+			duration: 200,
+			ease: 'Power2'
+		});
+	} else {
+		console.log('Failed to change texture:', { spriteKey, exists: gameScene.textures.exists(spriteKey) });
+	}
 }
 
 function updateSingleStat(statName, value) {

@@ -130,3 +130,37 @@ def get_pet_stats():
 	})
 
 
+@bp.route("/api/pet/test-action", methods=["POST"])
+@login_required
+def pet_test_action():
+	if not current_user.pet:
+		return jsonify({"error": "No pet found"}), 404
+	
+	test_action = request.json.get("test_action")
+	if not test_action or test_action not in ["reduce-hunger", "reduce-energy"]:
+		return jsonify({"error": "Invalid test action"}), 400
+	
+	pet = current_user.pet
+	
+	# Reduce the corresponding stat by 10 points
+	if test_action == "reduce-hunger":
+		pet.hunger = max(0, pet.hunger - 10)
+		pet.hunger = round(pet.hunger, 1)
+	elif test_action == "reduce-energy":
+		pet.energy = max(0, pet.energy - 10)
+		pet.energy = round(pet.energy, 1)
+	
+	db.session.commit()
+	
+	return jsonify({
+		"success": True,
+		"test_action": test_action,
+		"stats": {
+			"hunger": pet.hunger,
+			"happiness": pet.happiness,
+			"cleanliness": pet.cleanliness,
+			"energy": pet.energy
+		}
+	})
+
+

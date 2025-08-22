@@ -267,6 +267,33 @@ main {
 	cursor: not-allowed;
 }
 
+/* Test Buttons Styles */
+.test-buttons {
+	display: flex;
+	gap: 12px;
+	margin-top: 8px;
+}
+
+.test-btn {
+	padding: 8px 12px;
+	background: #f6a434;
+	color: white;
+	border: none;
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 12px;
+	transition: background 0.2s;
+}
+
+.test-btn:hover {
+	background: #e8941a;
+}
+
+.test-btn:disabled {
+	background: #6a737d;
+	cursor: not-allowed;
+}
+
 /* Action Feedback Styles */
 .action-feedback {
 	position: fixed;
