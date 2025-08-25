@@ -169,8 +169,50 @@ function setupActionButtons() {
 }
 
 async function handleAction(action) {
-	// Disable button during action
+	// Get the button
 	const button = document.querySelector(`[data-action="${action}"]`);
+	
+	// Check if button is already disabled
+	if (button && button.disabled) {
+		console.log(`Action ${action} is disabled`);
+		return;
+	}
+	
+	// Immediately check if the action should be allowed based on current stats
+	const actionToStat = {
+		'feed': { stat: 'hunger', threshold: 80 },
+		'play': { stat: 'happiness', threshold: 75 }, 
+		'bath': { stat: 'cleanliness', threshold: 80 },
+		'sleep': { stat: 'energy', threshold: 50 }
+	};
+	
+	const statConfig = actionToStat[action];
+	if (statConfig) {
+		// Get current stat value from the UI
+		const statBars = document.querySelectorAll('.stat-bar');
+		let currentStatValue = null;
+		
+		for (const bar of statBars) {
+			const label = bar.querySelector('label');
+			if (label && label.textContent.toLowerCase() === statConfig.stat) {
+				const valueSpan = bar.querySelector('span');
+				if (valueSpan) {
+					currentStatValue = parseInt(valueSpan.textContent);
+					break;
+				}
+			}
+		}
+		
+		// Check if stat is above threshold
+		if (currentStatValue !== null && currentStatValue > statConfig.threshold) {
+			console.log(`Action ${action} blocked - ${statConfig.stat} is ${currentStatValue}% (threshold: ${statConfig.threshold}%)`);
+			// Update button state immediately
+			updateButtonStates({ [statConfig.stat]: currentStatValue });
+			return;
+		}
+	}
+	
+	// Disable button during action
 	if (button) {
 		button.disabled = true;
 		button.style.opacity = '0.6';
@@ -351,6 +393,45 @@ function updateStatsDisplay(stats) {
 	
 	// Update pet appearance based on stats
 	updatePetAppearance(stats);
+	
+	// Update button states based on stats
+	updateButtonStates(stats);
+}
+
+function updateButtonStates(stats) {
+	// Define which action corresponds to which stat and their thresholds
+	const actionToStat = {
+		'feed': { stat: 'hunger', threshold: 80 },
+		'play': { stat: 'happiness', threshold: 75 }, 
+		'bath': { stat: 'cleanliness', threshold: 80 },
+		'sleep': { stat: 'energy', threshold: 50 }
+	};
+	
+	// Check each action button
+	Object.keys(actionToStat).forEach(action => {
+		const statConfig = actionToStat[action];
+		const statName = statConfig.stat;
+		const threshold = statConfig.threshold;
+		const statValue = stats[statName];
+		const button = document.querySelector(`[data-action="${action}"]`);
+		
+		if (button && statValue !== undefined) {
+			// Disable button if stat is above its threshold
+			if (statValue > threshold) {
+				button.disabled = true;
+				button.style.opacity = '0.5';
+				button.style.cursor = 'not-allowed';
+				button.title = `${statName.charAt(0).toUpperCase() + statName.slice(1)} is too high (${statValue}%). Wait until it drops to ${threshold}% or below.`;
+				console.log(`Disabled ${action} button - ${statName} is ${statValue}% (threshold: ${threshold}%)`);
+			} else {
+				button.disabled = false;
+				button.style.opacity = '1';
+				button.style.cursor = 'pointer';
+				button.title = `Use ${action} to improve ${statName}`;
+				console.log(`Enabled ${action} button - ${statName} is ${statValue}% (threshold: ${threshold}%)`);
+			}
+		}
+	});
 }
 
 function updatePetAppearance(stats) {

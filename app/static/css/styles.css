@@ -265,6 +265,41 @@ main {
 .action-btn:disabled {
 	background: #6a737d;
 	cursor: not-allowed;
+	opacity: 0.5;
+	position: relative;
+}
+
+.action-btn:disabled:hover {
+	background: #6a737d;
+}
+
+/* Tooltip styles for disabled buttons */
+.action-btn[title]:hover::after {
+	content: attr(title);
+	position: absolute;
+	bottom: 100%;
+	left: 50%;
+	transform: translateX(-50%);
+	background: #333;
+	color: white;
+	padding: 8px 12px;
+	border-radius: 4px;
+	font-size: 12px;
+	white-space: nowrap;
+	z-index: 1000;
+	margin-bottom: 5px;
+}
+
+.action-btn[title]:hover::before {
+	content: '';
+	position: absolute;
+	bottom: 100%;
+	left: 50%;
+	transform: translateX(-50%);
+	border: 5px solid transparent;
+	border-top-color: #333;
+	z-index: 1000;
+	margin-bottom: -5px;
 }
 
 /* Test Buttons Styles */
