@@ -47,6 +47,8 @@ class Pet(db.Model):
 	# Sleep state tracking
 	is_sleeping = db.Column(db.Boolean, nullable=False, default=False)
 	sleep_start_time = db.Column(db.DateTime, nullable=True)
+	sleep_type = db.Column(db.String(10), nullable=True)  # 'nap' or 'sleep'
+	sleep_end_time = db.Column(db.DateTime, nullable=True)
 
 	# Relationships
 	owner = db.relationship("User", back_populates="pet")
@@ -105,33 +107,28 @@ class Pet(db.Model):
 	
 	def check_wake_up(self):
 		"""Check if pet should wake up from sleep"""
-		if not self.is_sleeping or not self.sleep_start_time:
+		if not self.is_sleeping or not self.sleep_end_time:
+			print("SLEEP DEBUG: check_wake_up called but pet not sleeping or no end time")
 			return
 		
 		now = datetime.utcnow()
-		sleep_duration_hours = (now - self.sleep_start_time).total_seconds() / 3600
+		print(f"SLEEP DEBUG: Checking wake up - now: {now}, sleep_end_time: {self.sleep_end_time}")
 		
-		# Wake up after reasonable duration: 
-		# Nap: 2-4 hours
-		# Sleep: 6-8 hours  
-		# For faster testing, let's use shorter durations: nap=10 minutes, sleep=30 minutes
-		max_sleep_duration = 0.5  # 30 minutes for sleep
-		max_nap_duration = 0.17   # 10 minutes for nap
-		
-		# Determine if it was nap or sleep based on duration or energy level
-		# If we've been sleeping for more than nap duration, wake up
-		if sleep_duration_hours >= max_sleep_duration:
+		# Check if sleep end time has passed
+		if now >= self.sleep_end_time:
+			sleep_duration = (now - self.sleep_start_time).total_seconds()
+			print(f"SLEEP DEBUG: Pet woke up after {sleep_duration:.0f} seconds of {self.sleep_type}")
 			self.wake_up()
-			print(f"SLEEP DEBUG: Pet woke up after {sleep_duration_hours:.2f} hours of sleep")
-		elif sleep_duration_hours >= max_nap_duration:
-			# Could be a nap that should end
-			self.wake_up()
-			print(f"SLEEP DEBUG: Pet woke up after {sleep_duration_hours:.2f} hours of nap")
+		else:
+			remaining = (self.sleep_end_time - now).total_seconds()
+			print(f"SLEEP DEBUG: Pet still sleeping, {remaining:.0f} seconds remaining")
 	
 	def wake_up(self):
 		"""Wake up the pet from sleep"""
 		self.is_sleeping = False
 		self.sleep_start_time = None
+		self.sleep_type = None
+		self.sleep_end_time = None
 		print("SLEEP DEBUG: Pet has woken up")
 
 

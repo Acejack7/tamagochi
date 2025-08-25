@@ -19,6 +19,33 @@ let currentPetState = 'idle';
 let foodDisplaySprite = null; // For showing food images
 let foodDisplayTimer = null; // For timing food display
 
+// Sleep state management
+let sleepTimer = null;
+let sleepEndTime = null;
+let isSleeping = false;
+let autoUpdateTimer = null;
+
+// Test function to force sleep visibility
+function testSleep() {
+	console.log('🧪 TESTING SLEEP - forcing sleep overlay');
+	const now = new Date();
+	const endTime = new Date(now.getTime() + 60000); // 1 minute from now
+	
+	// Force the sleeping state
+	isSleeping = false; // Reset first
+	console.log('🔧 Force calling showSleepOverlay...');
+	showSleepOverlay('nap', endTime.toISOString());
+	
+	// Verify it's set
+	setTimeout(() => {
+		console.log('🔍 Sleep state after 1 second:', {
+			isSleeping,
+			sleepEndTime,
+			simpleBarVisible: document.getElementById('simple-sleep-bar')?.style.display
+		});
+	}, 1000);
+}
+
 // Pet sprite mappings
 const PET_SPRITES = {
 	hedgehog: {
@@ -130,14 +157,28 @@ function update() {
 }
 
 function setupAutoUpdates() {
-	// Update stats every minute (60000ms)
-	setInterval(async () => {
+	// Update stats every minute (60000ms) - but pause during sleep
+	autoUpdateTimer = setInterval(async () => {
+		// Skip auto-update if pet is sleeping to avoid interference
+		if (isSleeping) {
+			console.log('🔄 Auto-update: Skipping (pet is sleeping)');
+			return;
+		}
+		
 		try {
+			console.log('🔄 Auto-update: Fetching current stats...');
 			const response = await fetch('/api/pet/stats');
 			const data = await response.json();
 			
 			if (data.success) {
+				// Use loadCurrentStats logic to handle sleep state properly
 				updateStatsDisplay(data.stats);
+				
+				// Check sleep state (same logic as loadCurrentStats)
+				if (data.is_sleeping && data.sleep_end_time && !isSleeping) {
+					console.log('🔄 Auto-update: Pet is sleeping, showing overlay');
+					showSleepOverlay(data.sleep_type, data.sleep_end_time);
+				}
 			}
 		} catch (error) {
 			console.error('Auto-update failed:', error);
@@ -147,11 +188,37 @@ function setupAutoUpdates() {
 
 async function loadCurrentStats() {
 	try {
+		console.log('🔄 loadCurrentStats called - fetching from backend...');
 		const response = await fetch('/api/pet/stats');
 		const data = await response.json();
 		
+		console.log('📦 Backend response:', data);
+		
 		if (data.success) {
 			updateStatsDisplay(data.stats);
+			
+			// Check if pet is sleeping and show overlay
+			console.log('📊 loadCurrentStats - checking sleep state:', {
+				backendSleeping: data.is_sleeping,
+				frontendSleeping: isSleeping,
+				sleepType: data.sleep_type,
+				sleepEndTime: data.sleep_end_time,
+				sleepStartTime: data.sleep_start_time
+			});
+			
+			if (data.is_sleeping && data.sleep_end_time) {
+				console.log('🔄 Backend says sleeping - showing overlay');
+				// For page refresh, calculate the correct remaining time
+				showSleepOverlay(data.sleep_type, data.sleep_end_time, data.sleep_start_time);
+			} else if (isSleeping && !data.is_sleeping) {
+				// Pet woke up on backend, hide overlay
+				console.log('🌅 Backend says pet woke up - hiding overlay');
+				hideSleepOverlay();
+			} else if (!data.is_sleeping && !isSleeping) {
+				console.log('😴 No sleep state change needed');
+			} else {
+				console.log('🤔 Unexpected sleep state combination');
+			}
 		}
 	} catch (error) {
 		console.error('Failed to load stats:', error);
@@ -440,12 +507,23 @@ async function handleSleepAction(sleepType) {
 		
 		const data = await response.json();
 		
+		console.log('🔍 SLEEP ACTION RESPONSE:', data);
+		
 		if (data.success) {
-			// Update all stats and pet appearance
+			// Show sleep overlay FIRST, before updating stats
+			console.log(`🛌 Checking sleep state: is_sleeping=${data.is_sleeping}, sleep_end_time=${data.sleep_end_time}`);
+			if (data.is_sleeping && data.sleep_end_time) {
+				console.log('✅ Triggering sleep overlay...');
+				showSleepOverlay(data.sleep_type, data.sleep_end_time);
+			} else {
+				console.log('❌ NOT showing sleep overlay - missing data');
+			}
+			
+			// Update all stats and pet appearance AFTER showing overlay
 			updateStatsDisplay(data.stats);
 			
 			// Show success feedback
-			showActionFeedback(`${sleepType.charAt(0).toUpperCase() + sleepType.slice(1)} complete`, true);
+			showActionFeedback(`${sleepType.charAt(0).toUpperCase() + sleepType.slice(1)} started`, true);
 		} else {
 			showActionFeedback('Sleep', false, data.error);
 		}
@@ -695,8 +773,8 @@ function updateStatsDisplay(stats) {
 	// Update button states based on stats
 	updateButtonStates(stats);
 	
-	// Check for auto-sleep when energy reaches 0
-	if (stats.energy <= 0) {
+	// Check for auto-sleep when energy reaches 0 (but only if not already sleeping)
+	if (stats.energy <= 0 && !isSleeping) {
 		console.log('Energy reached 0, triggering auto-sleep');
 		autoSleep();
 	}
@@ -879,14 +957,223 @@ async function autoSleep() {
 			// Update all stats and pet appearance
 			updateStatsDisplay(data.stats);
 			
+			// Show sleep overlay for auto-sleep
+			if (data.is_sleeping && data.sleep_end_time) {
+				showSleepOverlay(data.sleep_type, data.sleep_end_time);
+			}
+			
 			// Show success feedback
-			showActionFeedback('Auto-sleep restored energy', true);
+			showActionFeedback('Auto-sleep started', true);
 		} else {
 			console.error('Auto-sleep failed:', data.error);
 		}
 	} catch (error) {
 		console.error('Auto-sleep failed:', error);
 	}
+}
+
+// Sleep management functions
+function showSleepOverlay(sleepType, endTime, startTime = null) {
+	console.log(`🛌 SHOWING SLEEP OVERLAY: ${sleepType} until ${endTime}`);
+	console.log(`🕐 Current time: ${new Date()}`);
+	console.log(`📍 Called from:`, new Error().stack.split('\n')[2]);
+	
+	isSleeping = true;
+	
+	// Always work in UTC to match backend
+	// Backend sends UTC times, so we need to compare with UTC
+	if (startTime) {
+		// Ensure we're parsing the UTC time correctly
+		const backendStartTime = new Date(startTime + (startTime.endsWith('Z') ? '' : 'Z')); 
+		const backendEndTime = new Date(endTime + (endTime.endsWith('Z') ? '' : 'Z'));
+		const nowUTC = new Date();
+		
+		// Simple approach: use the backend's actual end time if it's in the future
+		const timeToEnd = backendEndTime - nowUTC;
+		
+		if (timeToEnd > 0) {
+			// Backend end time is in the future, use it directly
+			sleepEndTime = backendEndTime;
+			console.log(`✅ Using backend end time directly: ${timeToEnd}ms (${Math.round(timeToEnd/1000)}s) remaining`);
+		} else {
+			// Calculate from start time + duration (fallback)
+			const elapsedMs = nowUTC - backendStartTime;
+			const totalDurationMs = sleepType === 'nap' ? 60000 : 120000; // 1 or 2 minutes
+			const remainingMs = Math.max(0, totalDurationMs - elapsedMs); // Don't go negative
+			
+			sleepEndTime = new Date(nowUTC.getTime() + remainingMs);
+			
+			console.log(`⏰ Fallback calculation:`, {
+				backendStartUTC: backendStartTime.toISOString(),
+				nowUTC: nowUTC.toISOString(), 
+				elapsedMs: Math.round(elapsedMs/1000) + 's',
+				totalDurationMs: Math.round(totalDurationMs/1000) + 's', 
+				remainingMs: Math.round(remainingMs/1000) + 's',
+				endTimeUTC: sleepEndTime.toISOString()
+			});
+		}
+	} else {
+		// No start time provided, calculate from current UTC time
+		const nowUTC = new Date();
+		const sleepDurationMs = sleepType === 'nap' ? 60000 : 120000; // 1 or 2 minutes
+		sleepEndTime = new Date(nowUTC.getTime() + sleepDurationMs);
+		console.log(`✅ New sleep - end time UTC: ${sleepEndTime.toISOString()}, local: ${sleepEndTime.toLocaleString()}`);
+	}
+	
+	// Show simple progress bar (always visible)
+	const simpleBar = document.getElementById('simple-sleep-bar');
+	const simpleText = document.getElementById('simple-sleep-text');
+	if (simpleBar && simpleText) {
+		simpleText.textContent = sleepType === 'nap' ? 'Pet is napping...' : 'Pet is sleeping...';
+		simpleBar.style.display = 'block';
+		console.log('✅ Simple progress bar shown');
+	} else {
+		console.error('❌ Simple progress bar elements not found');
+	}
+	
+	// Show main sleep overlay
+	const overlay = document.getElementById('sleep-overlay');
+	const title = document.getElementById('sleep-title');
+	if (overlay && title) {
+		title.textContent = sleepType === 'nap' ? 'Pet is taking a nap...' : 'Pet is sleeping...';
+		overlay.style.display = 'flex';
+		console.log('✅ Main sleep overlay shown');
+	} else {
+		console.error('❌ Main sleep overlay elements not found');
+	}
+	
+	// Sleep status indicator removed - only main overlay now
+	
+	// Disable all action buttons
+	disableAllActions(true);
+	
+	// Start the countdown timer
+	startSleepTimer();
+	
+	// Add protection against immediate hiding
+	setTimeout(() => {
+		if (!isSleeping) {
+			console.error('🚨 SLEEP OVERLAY WAS HIDDEN IMMEDIATELY! Something called hideSleepOverlay()');
+		}
+	}, 100);
+}
+
+function hideSleepOverlay() {
+	console.log('🌅 HIDING SLEEP OVERLAY - called from:', new Error().stack.split('\n')[2]);
+	
+	isSleeping = false;
+	sleepEndTime = null;
+	
+	// Hide simple progress bar
+	const simpleBar = document.getElementById('simple-sleep-bar');
+	if (simpleBar) {
+		simpleBar.style.display = 'none';
+		console.log('✅ Simple progress bar hidden');
+	}
+	
+	// Hide main sleep overlay
+	const overlay = document.getElementById('sleep-overlay');
+	if (overlay) {
+		overlay.style.display = 'none';
+		console.log('✅ Main sleep overlay hidden');
+	}
+	
+	// Sleep status indicator removed - no longer needed
+	
+	// Re-enable action buttons
+	disableAllActions(false);
+	
+	// Clear the timer
+	if (sleepTimer) {
+		clearInterval(sleepTimer);
+		sleepTimer = null;
+		console.log('✅ Sleep timer cleared');
+	}
+}
+
+function startSleepTimer() {
+	if (sleepTimer) {
+		clearInterval(sleepTimer);
+	}
+	
+	sleepTimer = setInterval(updateSleepProgress, 1000);
+	updateSleepProgress(); // Initial update
+}
+
+function updateSleepProgress() {
+	if (!sleepEndTime) return;
+	
+	const now = new Date();
+	const timeRemaining = sleepEndTime - now;
+	
+	console.log(`🕐 Sleep check: now=${now.toISOString()}, end=${sleepEndTime.toISOString()}, remaining=${timeRemaining}ms`);
+	
+	if (timeRemaining <= 0) {
+		// Sleep finished
+		console.log('⏰ Sleep timer finished - hiding overlay');
+		hideSleepOverlay();
+		// DON'T call loadCurrentStats() here - it causes infinite loop
+		return;
+	}
+	
+	// Calculate progress - we need to track total duration
+	// For now, estimate based on sleep type (1 min nap, 2 min sleep)
+	const sleepType = document.getElementById('sleep-title').textContent.toLowerCase();
+	const totalDurationMs = sleepType.includes('nap') ? 60000 : 120000; // 1 or 2 minutes
+	const elapsedMs = totalDurationMs - timeRemaining;
+	const progressPercent = Math.min(100, Math.max(0, (elapsedMs / totalDurationMs) * 100));
+	
+	// Update simple progress bar (most important - always visible)
+	const simpleProgressFill = document.getElementById('simple-progress-fill');
+	const simpleCountdown = document.getElementById('simple-sleep-countdown');
+	
+	// Format time for display
+	const minutes = Math.floor(timeRemaining / 60000);
+	const seconds = Math.floor((timeRemaining % 60000) / 1000);
+	const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+	
+	if (simpleProgressFill) {
+		simpleProgressFill.style.width = `${progressPercent}%`;
+		// Temporarily disable progress logging to clean console
+		// if (Math.round(progressPercent) % 10 === 0) {
+		// 	console.log(`⏱️ Progress: ${Math.round(progressPercent)}% | Time: ${timeString}`);
+		// }
+	}
+	if (simpleCountdown) {
+		simpleCountdown.textContent = timeString;
+	}
+	
+	// Update main progress bar
+	const progressFill = document.getElementById('sleep-progress-fill');
+	const progressText = document.getElementById('sleep-progress-text');
+	if (progressFill && progressText) {
+		progressFill.style.width = `${progressPercent}%`;
+		progressText.textContent = `${Math.round(progressPercent)}%`;
+	}
+	
+	// Update main timer
+	const timerElement = document.getElementById('sleep-timer');
+	if (timerElement) {
+		timerElement.textContent = `Time remaining: ${timeString}`;
+	}
+}
+
+function disableAllActions(disabled) {
+	const actionButtons = document.querySelectorAll('.action-btn');
+	const testButtons = document.querySelectorAll('.test-btn');
+	
+	actionButtons.forEach(button => {
+		button.disabled = disabled;
+		button.style.opacity = disabled ? '0.5' : '1';
+		if (disabled) {
+			button.title = 'Pet is sleeping - actions disabled';
+		}
+	});
+	
+	testButtons.forEach(button => {
+		button.disabled = disabled;
+		button.style.opacity = disabled ? '0.5' : '1';
+	});
 }
 
 window.addEventListener('load', () => {

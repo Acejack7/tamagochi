@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, request, flash, jsonify
 from flask_login import login_required, current_user
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from .models import Pet, PET_TYPES
 from .extensions import db
@@ -68,6 +68,15 @@ def pet_action():
 		return jsonify({"error": "Invalid action"}), 400
 	
 	pet = current_user.pet
+	
+	# Check if pet should wake up first
+	if pet.is_sleeping:
+		pet.check_wake_up()
+		db.session.commit()
+	
+	# Check if pet is still sleeping and block non-sleep actions
+	if pet.is_sleeping and action != "sleep":
+		return jsonify({"error": f"Pet is sleeping! Cannot {action} until {pet.sleep_end_time.strftime('%H:%M:%S') if pet.sleep_end_time else 'unknown time'}"}), 400
 	
 	# Update only the corresponding stat based on action
 	if action == "feed":
@@ -142,16 +151,24 @@ def pet_action():
 		
 		# Apply energy restoration
 		old_energy = pet.energy
+		now = datetime.utcnow()
+		
 		if sleep_type == 'nap':
 			pet.energy = min(100, pet.energy + 25)
-			# Set sleeping state for nap (shorter duration)
+			# Set sleeping state for nap (1 minute for testing, 1 hour in future)
+			sleep_duration_minutes = 1  # TODO: Change to 60 for production
 			pet.is_sleeping = True
-			pet.sleep_start_time = datetime.utcnow()
+			pet.sleep_start_time = now
+			pet.sleep_type = 'nap'
+			pet.sleep_end_time = now + timedelta(minutes=sleep_duration_minutes)
 		elif sleep_type == 'sleep':
 			pet.energy = 100  # Always restore to 100 for sleep
-			# Set sleeping state for sleep (longer duration)
+			# Set sleeping state for sleep (2 minutes for testing, 8 hours in future)
+			sleep_duration_minutes = 2  # TODO: Change to 480 (8 hours) for production
 			pet.is_sleeping = True
-			pet.sleep_start_time = datetime.utcnow()
+			pet.sleep_start_time = now
+			pet.sleep_type = 'sleep'
+			pet.sleep_end_time = now + timedelta(minutes=sleep_duration_minutes)
 		
 		pet.last_slept = datetime.utcnow()
 		pet.energy = round(pet.energy, 1)
@@ -161,12 +178,15 @@ def pet_action():
 		# Commit the changes immediately for sleep action
 		db.session.commit()
 		
-		# Return sleep type for frontend display
+		# Return sleep type and timing info for frontend display
 		return jsonify({
 			"success": True,
 			"action": action,
 			"sleep_type": sleep_type,
 			"auto_sleep": auto_sleep,
+			"is_sleeping": pet.is_sleeping,
+			"sleep_start_time": pet.sleep_start_time.isoformat() if pet.sleep_start_time else None,
+			"sleep_end_time": pet.sleep_end_time.isoformat() if pet.sleep_end_time else None,
 			"stats": {
 				"hunger": pet.hunger,
 				"happiness": pet.happiness,
@@ -206,6 +226,11 @@ def get_pet_stats():
 		(now - pet.last_slept).total_seconds()
 	)
 	
+	# Check if pet should wake up from sleep
+	if pet.is_sleeping:
+		pet.check_wake_up()
+		db.session.commit()
+	
 	# Only update stats if at least 30 seconds have passed since any action
 	if time_since_last_action >= 30:
 		pet.update_stats()
@@ -213,6 +238,10 @@ def get_pet_stats():
 	
 	return jsonify({
 		"success": True,
+		"is_sleeping": pet.is_sleeping,
+		"sleep_type": pet.sleep_type,
+		"sleep_start_time": pet.sleep_start_time.isoformat() if pet.sleep_start_time else None,
+		"sleep_end_time": pet.sleep_end_time.isoformat() if pet.sleep_end_time else None,
 		"stats": {
 			"hunger": pet.hunger,
 			"happiness": pet.happiness,

@@ -50,6 +50,39 @@
 		<div class="game-area">
 			<div id="game-container"></div>
 			
+			<!-- Simple sleep progress bar overlay (always on top) -->
+			<div id="simple-sleep-bar" class="simple-sleep-bar" style="display: none;">
+				<div class="simple-sleep-content">
+					<div class="simple-sleep-header">
+						<span style="font-size: 20px;">😴</span>
+						<span id="simple-sleep-text">Pet is sleeping...</span>
+						<span id="simple-sleep-countdown" style="font-family: monospace; font-weight: bold;">1:00</span>
+					</div>
+					<div class="simple-progress-bar">
+						<div id="simple-progress-fill" class="simple-progress-fill" style="width: 0%;"></div>
+					</div>
+				</div>
+			</div>
+			
+			<!-- Sleep progress overlay -->
+			<div id="sleep-overlay" class="sleep-overlay" style="display: none;">
+				<div class="sleep-content">
+					<div class="sleep-header">
+						<span class="sleep-emoji">😴</span>
+						<h3 id="sleep-title">Pet is sleeping...</h3>
+					</div>
+					<div class="sleep-progress-container">
+						<div class="progress-label">Sleep Progress</div>
+						<div id="sleep-progress-bar" class="sleep-progress-bar">
+							<div id="sleep-progress-fill" class="sleep-progress-fill"></div>
+							<div id="sleep-progress-text" class="sleep-progress-text">0%</div>
+						</div>
+						<div id="sleep-timer" class="sleep-timer">Time remaining: --:--</div>
+					</div>
+					<p class="sleep-description">Your pet is resting and cannot perform any actions until sleep is complete.</p>
+				</div>
+			</div>
+			
 			<div class="action-buttons">
 				<button class="action-btn" data-action="feed">Feed</button>
 				<button class="action-btn" data-action="play">Play</button>
@@ -97,6 +130,7 @@
 			<div class="test-buttons">
 				<button class="test-btn" data-test="reduce-hunger">Reduce Hunger (-10)</button>
 				<button class="test-btn" data-test="reduce-energy">Reduce Energy (-10)</button>
+				<button class="test-btn" onclick="testSleep(); event.stopPropagation();">🧪 TEST SLEEP</button>
 			</div>
 		</div>
 	</main>
