@@ -118,9 +118,62 @@ def pet_action():
 		pet.last_bathed = datetime.utcnow()
 		pet.cleanliness = round(pet.cleanliness, 1)
 	elif action == "sleep":
-		pet.energy = min(100, pet.energy + 25)
+		# Get sleep type from request
+		sleep_type = request.json.get("sleep_type")
+		auto_sleep = request.json.get("auto_sleep", False)
+		
+		if not sleep_type and not auto_sleep:
+			return jsonify({"error": "Sleep type is required for sleep action"}), 400
+		
+		# If auto_sleep is True, force sleep type to 'sleep'
+		if auto_sleep:
+			sleep_type = 'sleep'
+		
+		# Validate sleep type
+		if sleep_type not in ['nap', 'sleep']:
+			return jsonify({"error": "Invalid sleep type"}), 400
+		
+		# Check energy restrictions (unless it's auto-sleep)
+		if not auto_sleep:
+			if sleep_type == 'nap' and pet.energy > 50:
+				return jsonify({"error": "Energy too high for nap (max 50%)"}), 400
+			if sleep_type == 'sleep' and pet.energy > 30:
+				return jsonify({"error": "Energy too high for sleep (max 30%)"}), 400
+		
+		# Apply energy restoration
+		old_energy = pet.energy
+		if sleep_type == 'nap':
+			pet.energy = min(100, pet.energy + 25)
+			# Set sleeping state for nap (shorter duration)
+			pet.is_sleeping = True
+			pet.sleep_start_time = datetime.utcnow()
+		elif sleep_type == 'sleep':
+			pet.energy = 100  # Always restore to 100 for sleep
+			# Set sleeping state for sleep (longer duration)
+			pet.is_sleeping = True
+			pet.sleep_start_time = datetime.utcnow()
+		
 		pet.last_slept = datetime.utcnow()
 		pet.energy = round(pet.energy, 1)
+		
+		print(f"SLEEP DEBUG: {sleep_type} - Energy: {old_energy} -> {pet.energy}")
+		
+		# Commit the changes immediately for sleep action
+		db.session.commit()
+		
+		# Return sleep type for frontend display
+		return jsonify({
+			"success": True,
+			"action": action,
+			"sleep_type": sleep_type,
+			"auto_sleep": auto_sleep,
+			"stats": {
+				"hunger": pet.hunger,
+				"happiness": pet.happiness,
+				"cleanliness": pet.cleanliness,
+				"energy": pet.energy
+			}
+		})
 	
 	db.session.commit()
 	

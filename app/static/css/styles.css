@@ -432,4 +432,64 @@ main {
 	background: #586069;
 }
 
+/* Sleep menu styling - same as food menu */
+.sleep-menu {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	background: #fff;
+	padding: 24px;
+	border-radius: 12px;
+	box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+	z-index: 1000;
+	border: 1px solid #e1e4e8;
+}
+
+.sleep-menu h3 {
+	margin: 0 0 16px 0;
+	text-align: center;
+	color: #24292f;
+	font-size: 18px;
+}
+
+.sleep-options {
+	display: flex;
+	gap: 12px;
+	margin-bottom: 16px;
+}
+
+.sleep-btn {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	padding: 12px;
+	background: #f6f8fa;
+	border: 2px solid #e1e4e8;
+	border-radius: 8px;
+	cursor: pointer;
+	transition: all 0.2s;
+	min-width: 80px;
+}
+
+.sleep-btn:hover {
+	background: #e7f0ff;
+	border-color: #0969da;
+	transform: translateY(-2px);
+}
+
+.sleep-btn img {
+	width: 40px;
+	height: 40px;
+	object-fit: contain;
+}
+
+.sleep-btn span {
+	font-size: 12px;
+	color: #666;
+	text-align: center;
+	font-weight: 500;
+}
+
 

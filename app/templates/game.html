@@ -54,7 +54,7 @@
 				<button class="action-btn" data-action="feed">Feed</button>
 				<button class="action-btn" data-action="play">Play</button>
 				<button class="action-btn" data-action="bath">Bath</button>
-				<button class="action-btn" data-action="sleep">Sleep</button>
+				<button class="action-btn" data-action="sleep">Take rest</button>
 			</div>
 			
 			<!-- Food selection menu -->
@@ -75,6 +75,22 @@
 					</button>
 				</div>
 				<button id="cancel-food" class="cancel-btn">Cancel</button>
+			</div>
+			
+			<!-- Sleep selection menu -->
+			<div id="sleep-menu" class="sleep-menu" style="display: none;">
+				<h3>Choose rest type:</h3>
+				<div class="sleep-options">
+					<button class="sleep-btn" data-sleep="nap">
+						<img src="{{ url_for('static', filename='img/squirrel_sofa.png') }}" alt="Nap">
+						<span>Nap (+25)</span>
+					</button>
+					<button class="sleep-btn" data-sleep="sleep">
+						<img src="{{ url_for('static', filename='img/squirrel_bed.png') }}" alt="Sleep">
+						<span>Sleep (100)</span>
+					</button>
+				</div>
+				<button id="cancel-sleep" class="cancel-btn">Cancel</button>
 			</div>
 			
 			<!-- Test buttons for faster testing -->

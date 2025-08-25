@@ -62,6 +62,10 @@ function preload() {
 	this.load.image('blueberries', '/static/img/blueberry.png');
 	this.load.image('tree_seed', '/static/img/tree_seed.png');
 	
+	// Load sleep images
+	this.load.image('squirrel_sofa', '/static/img/squirrel_sofa.png');
+	this.load.image('squirrel_bed', '/static/img/squirrel_bed.png');
+	
 	console.log('Squirrel sprites and food images loaded');
 	
 	// TODO: Load other pet sprites when available
@@ -162,6 +166,8 @@ function setupActionButtons() {
 			const action = this.dataset.action;
 			if (action === 'feed') {
 				showFoodMenu();
+			} else if (action === 'sleep') {
+				showSleepMenu();
 			} else {
 				handleAction(action);
 			}
@@ -181,6 +187,21 @@ function setupActionButtons() {
 	const cancelButton = document.getElementById('cancel-food');
 	if (cancelButton) {
 		cancelButton.addEventListener('click', hideFoodMenu);
+	}
+	
+	// Setup sleep menu buttons
+	const sleepButtons = document.querySelectorAll('.sleep-btn');
+	sleepButtons.forEach(button => {
+		button.addEventListener('click', function() {
+			const sleepType = this.dataset.sleep;
+			handleSleepAction(sleepType);
+		});
+	});
+	
+	// Setup cancel sleep button
+	const cancelSleepButton = document.getElementById('cancel-sleep');
+	if (cancelSleepButton) {
+		cancelSleepButton.addEventListener('click', hideSleepMenu);
 	}
 	
 	// Setup test buttons
@@ -356,6 +377,90 @@ async function handleFeedAction(foodType) {
 	}
 }
 
+async function handleSleepAction(sleepType) {
+	// Hide the sleep menu
+	hideSleepMenu();
+	
+	// Get the sleep button
+	const button = document.querySelector('[data-action="sleep"]');
+	
+	// Check if button is already disabled
+	if (button && button.disabled) {
+		console.log('Sleep action is disabled');
+		return;
+	}
+	
+	// Check energy-based restrictions
+	const statBars = document.querySelectorAll('.stat-bar');
+	let currentEnergy = null;
+	
+	for (const bar of statBars) {
+		const label = bar.querySelector('label');
+		if (label && label.textContent.toLowerCase() === 'energy') {
+			const valueSpan = bar.querySelector('span');
+			if (valueSpan) {
+				currentEnergy = parseInt(valueSpan.textContent);
+				break;
+			}
+		}
+	}
+	
+	// Check restrictions: Nap (0-50), Sleep (0-30 only)
+	if (currentEnergy !== null) {
+		if (sleepType === 'nap' && currentEnergy > 50) {
+			console.log(`Nap action blocked - energy is ${currentEnergy}% (max: 50%)`);
+			showActionFeedback('Nap', false, 'Energy is too high for a nap');
+			return;
+		}
+		if (sleepType === 'sleep' && currentEnergy > 30) {
+			console.log(`Sleep action blocked - energy is ${currentEnergy}% (max: 30%)`);
+			showActionFeedback('Sleep', false, 'Energy is too high for sleep');
+			return;
+		}
+	}
+	
+	// Disable button during action
+	if (button) {
+		button.disabled = true;
+		button.style.opacity = '0.6';
+	}
+	
+	try {
+		// Show sleep image for 3 seconds
+		showSleepImage(sleepType);
+		
+		// Send AJAX request
+		const response = await fetch('/api/pet/action', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({ action: 'sleep', sleep_type: sleepType })
+		});
+		
+		const data = await response.json();
+		
+		if (data.success) {
+			// Update all stats and pet appearance
+			updateStatsDisplay(data.stats);
+			
+			// Show success feedback
+			showActionFeedback(`${sleepType.charAt(0).toUpperCase() + sleepType.slice(1)} complete`, true);
+		} else {
+			showActionFeedback('Sleep', false, data.error);
+		}
+	} catch (error) {
+		console.error('Sleep action failed:', error);
+		showActionFeedback('Sleep', false, 'Network error');
+	} finally {
+		// Re-enable button
+		if (button) {
+			button.disabled = false;
+			button.style.opacity = '1';
+		}
+	}
+}
+
 function showFoodMenu() {
 	const foodMenu = document.getElementById('food-menu');
 	if (foodMenu) {
@@ -367,6 +472,20 @@ function hideFoodMenu() {
 	const foodMenu = document.getElementById('food-menu');
 	if (foodMenu) {
 		foodMenu.style.display = 'none';
+	}
+}
+
+function showSleepMenu() {
+	const sleepMenu = document.getElementById('sleep-menu');
+	if (sleepMenu) {
+		sleepMenu.style.display = 'block';
+	}
+}
+
+function hideSleepMenu() {
+	const sleepMenu = document.getElementById('sleep-menu');
+	if (sleepMenu) {
+		sleepMenu.style.display = 'none';
 	}
 }
 
@@ -403,6 +522,34 @@ function clearFoodDisplay() {
 		clearTimeout(foodDisplayTimer);
 		foodDisplayTimer = null;
 	}
+}
+
+function showSleepImage(sleepType) {
+	if (!gameScene || !pet) return;
+	
+	// Clear any existing food display
+	clearFoodDisplay();
+	
+	// Map sleep types to image keys
+	const sleepImageMap = {
+		'nap': 'squirrel_sofa',
+		'sleep': 'squirrel_bed'
+	};
+	
+	const imageKey = sleepImageMap[sleepType];
+	if (!imageKey) return;
+	
+	// Create sleep sprite
+	foodDisplaySprite = gameScene.add.image(pet.x, pet.y, imageKey);
+	foodDisplaySprite.setScale(1.2);
+	
+	// Hide the pet temporarily
+	pet.setVisible(false);
+	
+	// Set timer to hide sleep image and show pet after 3 seconds
+	foodDisplayTimer = setTimeout(() => {
+		clearFoodDisplay();
+	}, 3000);
 }
 
 async function handleTestAction(testType) {
@@ -547,6 +694,12 @@ function updateStatsDisplay(stats) {
 	
 	// Update button states based on stats
 	updateButtonStates(stats);
+	
+	// Check for auto-sleep when energy reaches 0
+	if (stats.energy <= 0) {
+		console.log('Energy reached 0, triggering auto-sleep');
+		autoSleep();
+	}
 }
 
 function updateButtonStates(stats) {
@@ -567,19 +720,37 @@ function updateButtonStates(stats) {
 		const button = document.querySelector(`[data-action="${action}"]`);
 		
 		if (button && statValue !== undefined) {
-			// Disable button if stat is above its threshold
-			if (statValue > threshold) {
-				button.disabled = true;
-				button.style.opacity = '0.5';
-				button.style.cursor = 'not-allowed';
-				button.title = `${statName.charAt(0).toUpperCase() + statName.slice(1)} is too high (${statValue}%). Wait until it drops to ${threshold}% or below.`;
-				console.log(`Disabled ${action} button - ${statName} is ${statValue}% (threshold: ${threshold}%)`);
+			// Special handling for sleep button
+			if (action === 'sleep') {
+				// Sleep button is enabled if energy is 50 or below (for nap)
+				if (statValue > 50) {
+					button.disabled = true;
+					button.style.opacity = '0.5';
+					button.style.cursor = 'not-allowed';
+					button.title = `Energy is too high (${statValue}%). Need 50% or below for nap, 30% or below for sleep.`;
+					console.log(`Disabled ${action} button - ${statName} is ${statValue}% (max: 50%)`);
+				} else {
+					button.disabled = false;
+					button.style.opacity = '1';
+					button.style.cursor = 'pointer';
+					button.title = `Take rest to restore energy`;
+					console.log(`Enabled ${action} button - ${statName} is ${statValue}% (max: 50%)`);
+				}
 			} else {
-				button.disabled = false;
-				button.style.opacity = '1';
-				button.style.cursor = 'pointer';
-				button.title = `Use ${action} to improve ${statName}`;
-				console.log(`Enabled ${action} button - ${statName} is ${statValue}% (threshold: ${threshold}%)`);
+				// Regular threshold check for other buttons
+				if (statValue > threshold) {
+					button.disabled = true;
+					button.style.opacity = '0.5';
+					button.style.cursor = 'not-allowed';
+					button.title = `${statName.charAt(0).toUpperCase() + statName.slice(1)} is too high (${statValue}%). Wait until it drops to ${threshold}% or below.`;
+					console.log(`Disabled ${action} button - ${statName} is ${statValue}% (threshold: ${threshold}%)`);
+				} else {
+					button.disabled = false;
+					button.style.opacity = '1';
+					button.style.cursor = 'pointer';
+					button.title = `Use ${action} to improve ${statName}`;
+					console.log(`Enabled ${action} button - ${statName} is ${statValue}% (threshold: ${threshold}%)`);
+				}
 			}
 		}
 	});
@@ -684,6 +855,38 @@ function showActionFeedback(action, success, error = null) {
 		feedback.classList.remove('show');
 		setTimeout(() => feedback.remove(), 300);
 	}, 3000);
+}
+
+async function autoSleep() {
+	console.log('Auto-sleep triggered - energy at 0');
+	
+	try {
+		// Show sleep image for 3 seconds
+		showSleepImage('sleep');
+		
+		// Send AJAX request for auto-sleep
+		const response = await fetch('/api/pet/action', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({ action: 'sleep', sleep_type: 'sleep', auto_sleep: true })
+		});
+		
+		const data = await response.json();
+		
+		if (data.success) {
+			// Update all stats and pet appearance
+			updateStatsDisplay(data.stats);
+			
+			// Show success feedback
+			showActionFeedback('Auto-sleep restored energy', true);
+		} else {
+			console.error('Auto-sleep failed:', data.error);
+		}
+	} catch (error) {
+		console.error('Auto-sleep failed:', error);
+	}
 }
 
 window.addEventListener('load', () => {
