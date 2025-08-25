@@ -57,6 +57,26 @@
 				<button class="action-btn" data-action="sleep">Sleep</button>
 			</div>
 			
+			<!-- Food selection menu -->
+			<div id="food-menu" class="food-menu" style="display: none;">
+				<h3>Choose food:</h3>
+				<div class="food-options">
+					<button class="food-btn" data-food="mushroom">
+						<img src="{{ url_for('static', filename='img/mushroom.png') }}" alt="Mushroom">
+						<span>Mushroom (+10)</span>
+					</button>
+					<button class="food-btn" data-food="blueberries">
+						<img src="{{ url_for('static', filename='img/blueberry.png') }}" alt="Blueberries">
+						<span>Blueberries (+15)</span>
+					</button>
+					<button class="food-btn" data-food="tree_seed">
+						<img src="{{ url_for('static', filename='img/tree_seed.png') }}" alt="Tree Seed">
+						<span>Tree Seed (+5)</span>
+					</button>
+				</div>
+				<button id="cancel-food" class="cancel-btn">Cancel</button>
+			</div>
+			
 			<!-- Test buttons for faster testing -->
 			<div class="test-buttons">
 				<button class="test-btn" data-test="reduce-hunger">Reduce Hunger (-10)</button>

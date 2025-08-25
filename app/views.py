@@ -71,26 +71,55 @@ def pet_action():
 	
 	# Update only the corresponding stat based on action
 	if action == "feed":
-		pet.hunger = min(100, pet.hunger + 25)
+		# Get food type from request
+		food_type = request.json.get("food_type")
+		if not food_type:
+			return jsonify({"error": "Food type is required for feed action"}), 400
+		
+		# Define food types and their hunger values
+		food_values = {
+			"mushroom": 10,
+			"blueberries": 15,
+			"tree_seed": 5
+		}
+		
+		if food_type not in food_values:
+			return jsonify({"error": "Invalid food type"}), 400
+		
+		hunger_increase = food_values[food_type]
+		old_hunger = pet.hunger
+		pet.hunger = min(100, pet.hunger + hunger_increase)
 		pet.last_fed = datetime.utcnow()
+		pet.hunger = round(pet.hunger, 1)
+		
+		print(f"FEED DEBUG: {food_type} - Hunger: {old_hunger} -> {pet.hunger} (+{hunger_increase})")
+		
+		# Commit the changes immediately for feed action
+		db.session.commit()
+		
+		# Return food type for frontend display
+		return jsonify({
+			"success": True,
+			"action": action,
+			"food_type": food_type,
+			"stats": {
+				"hunger": pet.hunger,
+				"happiness": pet.happiness,
+				"cleanliness": pet.cleanliness,
+				"energy": pet.energy
+			}
+		})
 	elif action == "play":
 		pet.happiness = min(100, pet.happiness + 25)
 		pet.last_played = datetime.utcnow()
+		pet.happiness = round(pet.happiness, 1)
 	elif action == "bath":
 		pet.cleanliness = min(100, pet.cleanliness + 25)
 		pet.last_bathed = datetime.utcnow()
+		pet.cleanliness = round(pet.cleanliness, 1)
 	elif action == "sleep":
 		pet.energy = min(100, pet.energy + 25)
 		pet.last_slept = datetime.utcnow()
-	
-	# Round the updated stat to one decimal
-	if action == "feed":
-		pet.hunger = round(pet.hunger, 1)
-	elif action == "play":
-		pet.happiness = round(pet.happiness, 1)
-	elif action == "bath":
-		pet.cleanliness = round(pet.cleanliness, 1)
-	elif action == "sleep":
 		pet.energy = round(pet.energy, 1)
 	
 	db.session.commit()
@@ -115,9 +144,19 @@ def get_pet_stats():
 	
 	pet = current_user.pet
 	
-	# Update stats based on time passed
-	pet.update_stats()
-	db.session.commit()
+	# Only update stats if enough time has passed since last action (at least 30 seconds)
+	now = datetime.utcnow()
+	time_since_last_action = min(
+		(now - pet.last_fed).total_seconds(),
+		(now - pet.last_played).total_seconds(),
+		(now - pet.last_bathed).total_seconds(),
+		(now - pet.last_slept).total_seconds()
+	)
+	
+	# Only update stats if at least 30 seconds have passed since any action
+	if time_since_last_action >= 30:
+		pet.update_stats()
+		db.session.commit()
 	
 	return jsonify({
 		"success": True,

@@ -16,6 +16,8 @@ let pet;
 let petType = 'hedgehog'; // default, will be updated from server
 let gameScene;
 let currentPetState = 'idle';
+let foodDisplaySprite = null; // For showing food images
+let foodDisplayTimer = null; // For timing food display
 
 // Pet sprite mappings
 const PET_SPRITES = {
@@ -55,7 +57,12 @@ function preload() {
 	this.load.image('squirrel_hungry', '/static/sprites/squirrel_hungry.png');
 	this.load.image('squirrel_sleeping', '/static/sprites/squirrel_sleeping.png');
 	
-	console.log('Squirrel sprites loaded');
+	// Load food images
+	this.load.image('mushroom', '/static/img/mushroom.png');
+	this.load.image('blueberries', '/static/img/blueberry.png');
+	this.load.image('tree_seed', '/static/img/tree_seed.png');
+	
+	console.log('Squirrel sprites and food images loaded');
 	
 	// TODO: Load other pet sprites when available
 	// this.load.image('hedgehog_idle', '/static/sprites/hedgehog_idle.png');
@@ -153,9 +160,28 @@ function setupActionButtons() {
 	actionButtons.forEach(button => {
 		button.addEventListener('click', function() {
 			const action = this.dataset.action;
-			handleAction(action);
+			if (action === 'feed') {
+				showFoodMenu();
+			} else {
+				handleAction(action);
+			}
 		});
 	});
+	
+	// Setup food menu buttons
+	const foodButtons = document.querySelectorAll('.food-btn');
+	foodButtons.forEach(button => {
+		button.addEventListener('click', function() {
+			const foodType = this.dataset.food;
+			handleFeedAction(foodType);
+		});
+	});
+	
+	// Setup cancel button
+	const cancelButton = document.getElementById('cancel-food');
+	if (cancelButton) {
+		cancelButton.addEventListener('click', hideFoodMenu);
+	}
 	
 	// Setup test buttons
 	const testButtons = document.querySelectorAll('.test-btn');
@@ -251,6 +277,131 @@ async function handleAction(action) {
 			button.disabled = false;
 			button.style.opacity = '1';
 		}
+	}
+}
+
+async function handleFeedAction(foodType) {
+	// Hide the food menu
+	hideFoodMenu();
+	
+	// Get the feed button
+	const button = document.querySelector('[data-action="feed"]');
+	
+	// Check if button is already disabled
+	if (button && button.disabled) {
+		console.log('Feed action is disabled');
+		return;
+	}
+	
+	// Check if hunger is above threshold
+	const statBars = document.querySelectorAll('.stat-bar');
+	let currentHunger = null;
+	
+	for (const bar of statBars) {
+		const label = bar.querySelector('label');
+		if (label && label.textContent.toLowerCase() === 'hunger') {
+			const valueSpan = bar.querySelector('span');
+			if (valueSpan) {
+				currentHunger = parseInt(valueSpan.textContent);
+				break;
+			}
+		}
+	}
+	
+	if (currentHunger !== null && currentHunger > 80) {
+		console.log(`Feed action blocked - hunger is ${currentHunger}% (threshold: 80%)`);
+		updateButtonStates({ hunger: currentHunger });
+		return;
+	}
+	
+	// Disable button during action
+	if (button) {
+		button.disabled = true;
+		button.style.opacity = '0.6';
+	}
+	
+	try {
+		// Show food image for 3 seconds
+		showFoodImage(foodType);
+		
+		// Send AJAX request
+		const response = await fetch('/api/pet/action', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({ action: 'feed', food_type: foodType })
+		});
+		
+		const data = await response.json();
+		
+		if (data.success) {
+			// Update all stats and pet appearance
+			updateStatsDisplay(data.stats);
+			
+			// Show success feedback
+			showActionFeedback(`Fed ${foodType}`, true);
+		} else {
+			showActionFeedback('Feed', false, data.error);
+		}
+	} catch (error) {
+		console.error('Feed action failed:', error);
+		showActionFeedback('Feed', false, 'Network error');
+	} finally {
+		// Re-enable button
+		if (button) {
+			button.disabled = false;
+			button.style.opacity = '1';
+		}
+	}
+}
+
+function showFoodMenu() {
+	const foodMenu = document.getElementById('food-menu');
+	if (foodMenu) {
+		foodMenu.style.display = 'block';
+	}
+}
+
+function hideFoodMenu() {
+	const foodMenu = document.getElementById('food-menu');
+	if (foodMenu) {
+		foodMenu.style.display = 'none';
+	}
+}
+
+function showFoodImage(foodType) {
+	if (!gameScene || !pet) return;
+	
+	// Clear any existing food display
+	clearFoodDisplay();
+	
+	// Create food sprite
+	foodDisplaySprite = gameScene.add.image(pet.x, pet.y, foodType);
+	foodDisplaySprite.setScale(1.2);
+	
+	// Hide the pet temporarily
+	pet.setVisible(false);
+	
+	// Set timer to hide food and show pet after 3 seconds
+	foodDisplayTimer = setTimeout(() => {
+		clearFoodDisplay();
+	}, 3000);
+}
+
+function clearFoodDisplay() {
+	if (foodDisplaySprite) {
+		foodDisplaySprite.destroy();
+		foodDisplaySprite = null;
+	}
+	
+	if (pet) {
+		pet.setVisible(true);
+	}
+	
+	if (foodDisplayTimer) {
+		clearTimeout(foodDisplayTimer);
+		foodDisplayTimer = null;
 	}
 }
 
@@ -538,5 +689,6 @@ function showActionFeedback(action, success, error = null) {
 window.addEventListener('load', () => {
 	new Phaser.Game(config);
 });
+
 
 

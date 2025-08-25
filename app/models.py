@@ -59,16 +59,31 @@ class Pet(db.Model):
 		
 		# Apply decay (8.33 points per hour)
 		decay_rate = 8.33
-		self.hunger = round(max(0, self.hunger - (hours_since_fed * decay_rate)), 1)
-		self.happiness = round(max(0, self.happiness - (hours_since_played * decay_rate)), 1)
-		self.cleanliness = round(max(0, self.cleanliness - (hours_since_bathed * decay_rate)), 1)
-		self.energy = round(max(0, self.energy - (hours_since_slept * decay_rate)), 1)
 		
-		# Update timestamps
-		self.last_fed = now
-		self.last_played = now
-		self.last_bathed = now
-		self.last_slept = now
+		# Only apply decay if enough time has passed (at least 1 minute)
+		if hours_since_fed >= 1/60:  # 1 minute
+			old_hunger = self.hunger
+			self.hunger = round(max(0, self.hunger - (hours_since_fed * decay_rate)), 1)
+			self.last_fed = now
+			print(f"DECAY DEBUG: Hunger decay - {old_hunger} -> {self.hunger} (hours: {hours_since_fed:.2f})")
+		
+		if hours_since_played >= 1/60:  # 1 minute
+			old_happiness = self.happiness
+			self.happiness = round(max(0, self.happiness - (hours_since_played * decay_rate)), 1)
+			self.last_played = now
+			print(f"DECAY DEBUG: Happiness decay - {old_happiness} -> {self.happiness} (hours: {hours_since_played:.2f})")
+		
+		if hours_since_bathed >= 1/60:  # 1 minute
+			old_cleanliness = self.cleanliness
+			self.cleanliness = round(max(0, self.cleanliness - (hours_since_bathed * decay_rate)), 1)
+			self.last_bathed = now
+			print(f"DECAY DEBUG: Cleanliness decay - {old_cleanliness} -> {self.cleanliness} (hours: {hours_since_bathed:.2f})")
+		
+		if hours_since_slept >= 1/60:  # 1 minute
+			old_energy = self.energy
+			self.energy = round(max(0, self.energy - (hours_since_slept * decay_rate)), 1)
+			self.last_slept = now
+			print(f"DECAY DEBUG: Energy decay - {old_energy} -> {self.energy} (hours: {hours_since_slept:.2f})")
 
 
 @login_manager.user_loader
