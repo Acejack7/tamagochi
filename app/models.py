@@ -8,6 +8,7 @@ from flask_login import UserMixin
 from .extensions import db, login_manager
 
 PET_TYPES = ["hedgehog", "hamster", "squirrel"]
+FOOD_TYPES = ["tree_seed", "blueberries", "mushroom"]
 
 
 class User(db.Model, UserMixin):
@@ -18,6 +19,7 @@ class User(db.Model, UserMixin):
 	password_hash = db.Column(db.String(255), nullable=False)
 	created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 	pet = db.relationship("Pet", back_populates="owner", uselist=False)
+	inventory = db.relationship("Inventory", back_populates="owner", uselist=False)
 
 	def get_id(self) -> str:
 		return str(self.id)
@@ -130,6 +132,50 @@ class Pet(db.Model):
 		self.sleep_type = None
 		self.sleep_end_time = None
 		print("SLEEP DEBUG: Pet has woken up")
+
+
+class Inventory(db.Model):
+	__tablename__ = "inventories"
+
+	id = db.Column(db.Integer, primary_key=True)
+	owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, unique=True)
+	
+	# Food quantities
+	tree_seed = db.Column(db.Integer, nullable=False, default=5)
+	blueberries = db.Column(db.Integer, nullable=False, default=5)
+	mushroom = db.Column(db.Integer, nullable=False, default=5)
+	
+	created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+	
+	# Relationships
+	owner = db.relationship("User", back_populates="inventory")
+	
+	def get_food_quantity(self, food_type: str) -> int:
+		"""Get the quantity of a specific food type"""
+		if food_type not in FOOD_TYPES:
+			return 0
+		return getattr(self, food_type, 0)
+	
+	def consume_food(self, food_type: str, quantity: int = 1) -> bool:
+		"""Consume food from inventory. Returns True if successful, False if not enough food"""
+		if food_type not in FOOD_TYPES:
+			return False
+		
+		current_quantity = getattr(self, food_type, 0)
+		if current_quantity < quantity:
+			return False
+		
+		setattr(self, food_type, current_quantity - quantity)
+		return True
+	
+	def add_food(self, food_type: str, quantity: int) -> bool:
+		"""Add food to inventory. Returns True if successful"""
+		if food_type not in FOOD_TYPES:
+			return False
+		
+		current_quantity = getattr(self, food_type, 0)
+		setattr(self, food_type, current_quantity + quantity)
+		return True
 
 
 @login_manager.user_loader

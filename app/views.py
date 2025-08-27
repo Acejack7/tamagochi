@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, request, flash,
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 
-from .models import Pet, PET_TYPES
+from .models import Pet, PET_TYPES, Inventory
 from .extensions import db
 
 
@@ -21,7 +21,13 @@ def index():
 	# Update pet stats based on time passed
 	current_user.pet.update_stats()
 	
-	return render_template("game.html", pet=current_user.pet)
+	# Check if user has inventory, create one if missing (for existing users)
+	if not current_user.inventory:
+		inventory = Inventory(owner_id=current_user.id)
+		db.session.add(inventory)
+		db.session.commit()
+	
+	return render_template("game.html", pet=current_user.pet, inventory=current_user.inventory)
 
 
 @bp.route("/select-pet", methods=["GET", "POST"])
@@ -49,6 +55,11 @@ def select_pet():
 			name=pet_name
 		)
 		db.session.add(pet)
+		
+		# Create the inventory with default food quantities
+		inventory = Inventory(owner_id=current_user.id)
+		db.session.add(inventory)
+		
 		db.session.commit()
 		
 		flash(f"Welcome {pet_name} the {pet_type}!", "success")
@@ -95,22 +106,40 @@ def pet_action():
 		if food_type not in food_values:
 			return jsonify({"error": "Invalid food type"}), 400
 		
+		# Check if user has inventory
+		if not current_user.inventory:
+			return jsonify({"error": "Inventory not found"}), 404
+		
+		# Check if user has enough food
+		food_quantity = current_user.inventory.get_food_quantity(food_type)
+		if food_quantity <= 0:
+			return jsonify({"error": f"No {food_type.replace('_', ' ')} left in inventory"}), 400
+		
+		# Consume the food from inventory
+		if not current_user.inventory.consume_food(food_type, 1):
+			return jsonify({"error": f"Failed to consume {food_type}"}), 400
+		
 		hunger_increase = food_values[food_type]
 		old_hunger = pet.hunger
 		pet.hunger = min(100, pet.hunger + hunger_increase)
 		pet.last_fed = datetime.utcnow()
 		pet.hunger = round(pet.hunger, 1)
 		
-		print(f"FEED DEBUG: {food_type} - Hunger: {old_hunger} -> {pet.hunger} (+{hunger_increase})")
+		print(f"FEED DEBUG: {food_type} - Hunger: {old_hunger} -> {pet.hunger} (+{hunger_increase}), Inventory: {food_quantity} -> {food_quantity - 1}")
 		
 		# Commit the changes immediately for feed action
 		db.session.commit()
 		
-		# Return food type for frontend display
+		# Return food type and updated inventory for frontend display
 		return jsonify({
 			"success": True,
 			"action": action,
 			"food_type": food_type,
+			"inventory": {
+				"tree_seed": current_user.inventory.tree_seed,
+				"blueberries": current_user.inventory.blueberries,
+				"mushroom": current_user.inventory.mushroom
+			},
 			"stats": {
 				"hunger": pet.hunger,
 				"happiness": pet.happiness,
@@ -236,12 +265,22 @@ def get_pet_stats():
 		pet.update_stats()
 		db.session.commit()
 	
+	# Get inventory data
+	inventory_data = {}
+	if current_user.inventory:
+		inventory_data = {
+			"tree_seed": current_user.inventory.tree_seed,
+			"blueberries": current_user.inventory.blueberries,
+			"mushroom": current_user.inventory.mushroom
+		}
+	
 	return jsonify({
 		"success": True,
 		"is_sleeping": pet.is_sleeping,
 		"sleep_type": pet.sleep_type,
 		"sleep_start_time": pet.sleep_start_time.isoformat() if pet.sleep_start_time else None,
 		"sleep_end_time": pet.sleep_end_time.isoformat() if pet.sleep_end_time else None,
+		"inventory": inventory_data,
 		"stats": {
 			"hunger": pet.hunger,
 			"happiness": pet.happiness,

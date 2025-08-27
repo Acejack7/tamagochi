@@ -90,21 +90,25 @@
 				<button class="action-btn" data-action="sleep">Take rest</button>
 			</div>
 			
+			<div class="utility-buttons">
+				<button class="storage-btn" id="storage-btn">📦 Storage</button>
+			</div>
+			
 			<!-- Food selection menu -->
 			<div id="food-menu" class="food-menu" style="display: none;">
 				<h3>Choose food:</h3>
 				<div class="food-options">
 					<button class="food-btn" data-food="mushroom">
 						<img src="{{ url_for('static', filename='img/mushroom.png') }}" alt="Mushroom">
-						<span>Mushroom (+10)</span>
+						<span>Mushroom (+10) <span class="food-quantity" data-food-type="mushroom">({{ inventory.mushroom if inventory else 0 }})</span></span>
 					</button>
 					<button class="food-btn" data-food="blueberries">
 						<img src="{{ url_for('static', filename='img/blueberry.png') }}" alt="Blueberries">
-						<span>Blueberries (+15)</span>
+						<span>Blueberries (+15) <span class="food-quantity" data-food-type="blueberries">({{ inventory.blueberries if inventory else 0 }})</span></span>
 					</button>
 					<button class="food-btn" data-food="tree_seed">
 						<img src="{{ url_for('static', filename='img/tree_seed.png') }}" alt="Tree Seed">
-						<span>Tree Seed (+5)</span>
+						<span>Tree Seed (+5) <span class="food-quantity" data-food-type="tree_seed">({{ inventory.tree_seed if inventory else 0 }})</span></span>
 					</button>
 				</div>
 				<button id="cancel-food" class="cancel-btn">Cancel</button>
@@ -126,6 +130,53 @@
 				<button id="cancel-sleep" class="cancel-btn">Cancel</button>
 			</div>
 			
+			<!-- Storage modal -->
+			<div id="storage-modal" class="storage-modal" style="display: none;">
+				<div class="storage-content">
+					<div class="storage-header">
+						<h3>📦 Storage Inventory</h3>
+						<button class="close-btn" id="close-storage">&times;</button>
+					</div>
+					<div class="storage-items">
+						<div class="storage-item" data-item="tree_seed">
+							<div class="item-icon">
+								<img src="{{ url_for('static', filename='img/tree_seed.png') }}" alt="Tree Seed">
+							</div>
+							<div class="item-info">
+								<div class="item-name">Tree Seed</div>
+								<div class="item-description">Small nutritious seed (+5 hunger)</div>
+							</div>
+							<div class="item-quantity" id="storage-tree_seed">{{ inventory.tree_seed if inventory else 0 }}</div>
+						</div>
+						
+						<div class="storage-item" data-item="blueberries">
+							<div class="item-icon">
+								<img src="{{ url_for('static', filename='img/blueberry.png') }}" alt="Blueberries">
+							</div>
+							<div class="item-info">
+								<div class="item-name">Blueberries</div>
+								<div class="item-description">Sweet and nutritious berries (+15 hunger)</div>
+							</div>
+							<div class="item-quantity" id="storage-blueberries">{{ inventory.blueberries if inventory else 0 }}</div>
+						</div>
+						
+						<div class="storage-item" data-item="mushroom">
+							<div class="item-icon">
+								<img src="{{ url_for('static', filename='img/mushroom.png') }}" alt="Mushroom">
+							</div>
+							<div class="item-info">
+								<div class="item-name">Mushroom</div>
+								<div class="item-description">Earthy forest mushroom (+10 hunger)</div>
+							</div>
+							<div class="item-quantity" id="storage-mushroom">{{ inventory.mushroom if inventory else 0 }}</div>
+						</div>
+					</div>
+					<div class="storage-footer">
+						<p class="storage-note">💡 Use the Feed button to give food to your pet</p>
+					</div>
+				</div>
+			</div>
+
 			<!-- Test buttons for faster testing -->
 			<div class="test-buttons">
 				<button class="test-btn" data-test="reduce-hunger">Reduce Hunger (-10)</button>

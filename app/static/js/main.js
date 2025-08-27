@@ -75,6 +75,13 @@ const PET_COLORS = {
 	squirrel: 0xa0522d  // sienna
 };
 
+// Global inventory state
+let currentInventory = {
+	tree_seed: 0,
+	blueberries: 0,
+	mushroom: 0
+};
+
 function preload() {
 	console.log('Preloading sprites...');
 	
@@ -197,6 +204,11 @@ async function loadCurrentStats() {
 		if (data.success) {
 			updateStatsDisplay(data.stats);
 			
+			// Update inventory
+			if (data.inventory) {
+				updateInventoryDisplay(data.inventory);
+			}
+			
 			// Check if pet is sleeping and show overlay
 			console.log('📊 loadCurrentStats - checking sleep state:', {
 				backendSleeping: data.is_sleeping,
@@ -269,6 +281,28 @@ function setupActionButtons() {
 	const cancelSleepButton = document.getElementById('cancel-sleep');
 	if (cancelSleepButton) {
 		cancelSleepButton.addEventListener('click', hideSleepMenu);
+	}
+	
+	// Setup storage button
+	const storageButton = document.getElementById('storage-btn');
+	if (storageButton) {
+		storageButton.addEventListener('click', showStorageModal);
+	}
+	
+	// Setup close storage button
+	const closeStorageButton = document.getElementById('close-storage');
+	if (closeStorageButton) {
+		closeStorageButton.addEventListener('click', hideStorageModal);
+	}
+	
+	// Setup storage modal click outside to close
+	const storageModal = document.getElementById('storage-modal');
+	if (storageModal) {
+		storageModal.addEventListener('click', function(e) {
+			if (e.target === storageModal) {
+				hideStorageModal();
+			}
+		});
 	}
 	
 	// Setup test buttons
@@ -427,6 +461,11 @@ async function handleFeedAction(foodType) {
 			// Update all stats and pet appearance
 			updateStatsDisplay(data.stats);
 			
+			// Update inventory display
+			if (data.inventory) {
+				updateInventoryDisplay(data.inventory);
+			}
+			
 			// Show success feedback
 			showActionFeedback(`Fed ${foodType}`, true);
 		} else {
@@ -542,6 +581,8 @@ async function handleSleepAction(sleepType) {
 function showFoodMenu() {
 	const foodMenu = document.getElementById('food-menu');
 	if (foodMenu) {
+		// Update food button states before showing menu
+		updateFoodButtonStates();
 		foodMenu.style.display = 'block';
 	}
 }
@@ -1158,6 +1199,60 @@ function updateSleepProgress() {
 	}
 }
 
+function updateInventoryDisplay(inventory) {
+	// Update global inventory state
+	currentInventory = { ...inventory };
+	
+	// Update food quantity displays
+	Object.keys(inventory).forEach(foodType => {
+		const quantity = inventory[foodType];
+		const quantityElements = document.querySelectorAll(`[data-food-type="${foodType}"]`);
+		
+		quantityElements.forEach(element => {
+			element.textContent = `(${quantity})`;
+			
+			// Add styling based on quantity
+			element.classList.remove('low-quantity', 'zero-quantity');
+			if (quantity === 0) {
+				element.classList.add('zero-quantity');
+			} else if (quantity <= 2) {
+				element.classList.add('low-quantity');
+			}
+		});
+	});
+	
+	// Update storage modal quantities
+	updateStorageQuantities(inventory);
+	
+	// Update food button states
+	updateFoodButtonStates();
+	
+	console.log('📦 Inventory updated:', inventory);
+}
+
+function updateFoodButtonStates() {
+	const foodButtons = document.querySelectorAll('.food-btn');
+	
+	foodButtons.forEach(button => {
+		const foodType = button.dataset.food;
+		const quantity = currentInventory[foodType] || 0;
+		
+		if (quantity <= 0) {
+			button.disabled = true;
+			button.style.opacity = '0.5';
+			button.style.cursor = 'not-allowed';
+			button.title = `No ${foodType.replace('_', ' ')} left in inventory`;
+			button.classList.add('food-disabled');
+		} else {
+			button.disabled = false;
+			button.style.opacity = '1';
+			button.style.cursor = 'pointer';
+			button.title = `Feed ${foodType.replace('_', ' ')} (${quantity} remaining)`;
+			button.classList.remove('food-disabled');
+		}
+	});
+}
+
 function disableAllActions(disabled) {
 	const actionButtons = document.querySelectorAll('.action-btn');
 	const testButtons = document.querySelectorAll('.test-btn');
@@ -1174,6 +1269,53 @@ function disableAllActions(disabled) {
 		button.disabled = disabled;
 		button.style.opacity = disabled ? '0.5' : '1';
 	});
+}
+
+// Storage modal functions
+function showStorageModal() {
+	const storageModal = document.getElementById('storage-modal');
+	if (storageModal) {
+		// Update storage quantities before showing
+		updateStorageQuantities(currentInventory);
+		storageModal.style.display = 'flex';
+		
+		// Add fade-in animation
+		storageModal.style.opacity = '0';
+		setTimeout(() => {
+			storageModal.style.opacity = '1';
+		}, 10);
+		
+		console.log('📦 Storage modal opened');
+	}
+}
+
+function hideStorageModal() {
+	const storageModal = document.getElementById('storage-modal');
+	if (storageModal) {
+		storageModal.style.display = 'none';
+		console.log('📦 Storage modal closed');
+	}
+}
+
+function updateStorageQuantities(inventory) {
+	Object.keys(inventory).forEach(foodType => {
+		const quantity = inventory[foodType];
+		const quantityElement = document.getElementById(`storage-${foodType}`);
+		
+		if (quantityElement) {
+			quantityElement.textContent = quantity;
+			
+			// Update styling based on quantity
+			quantityElement.classList.remove('zero', 'low');
+			if (quantity === 0) {
+				quantityElement.classList.add('zero');
+			} else if (quantity <= 2) {
+				quantityElement.classList.add('low');
+			}
+		}
+	});
+	
+	console.log('📦 Storage quantities updated:', inventory);
 }
 
 window.addEventListener('load', () => {
