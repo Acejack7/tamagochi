@@ -288,13 +288,13 @@ function setupActionButtons() {
 	if (storageButton) {
 		storageButton.addEventListener('click', showStorageModal);
 	}
-	
+
 	// Setup close storage button
 	const closeStorageButton = document.getElementById('close-storage');
 	if (closeStorageButton) {
 		closeStorageButton.addEventListener('click', hideStorageModal);
 	}
-	
+
 	// Setup storage modal click outside to close
 	const storageModal = document.getElementById('storage-modal');
 	if (storageModal) {
@@ -304,6 +304,34 @@ function setupActionButtons() {
 			}
 		});
 	}
+
+	// Setup shop button
+	const shopButton = document.getElementById('shop-btn');
+	if (shopButton) {
+		shopButton.addEventListener('click', showShopModal);
+	}
+
+	// Setup close shop button
+	const closeShopButton = document.getElementById('close-shop');
+	if (closeShopButton) {
+		closeShopButton.addEventListener('click', hideShopModal);
+	}
+
+	// Setup shop modal click outside to close
+	const shopModal = document.getElementById('shop-modal');
+	if (shopModal) {
+		shopModal.addEventListener('click', function(e) {
+			if (e.target === shopModal) {
+				hideShopModal();
+			}
+		});
+	}
+
+	// Setup quantity selectors
+	setupQuantitySelectors();
+
+	// Setup buy buttons
+	setupBuyButtons();
 	
 	// Setup test buttons
 	const testButtons = document.querySelectorAll('.test-btn');
@@ -825,9 +853,10 @@ function updateButtonStates(stats) {
 	// Define which action corresponds to which stat and their thresholds
 	const actionToStat = {
 		'feed': { stat: 'hunger', threshold: 80 },
-		'play': { stat: 'happiness', threshold: 75 }, 
+		'play': { stat: 'happiness', threshold: 75 },
 		'bath': { stat: 'cleanliness', threshold: 80 },
-		'sleep': { stat: 'energy', threshold: 50 }
+		'sleep': { stat: 'energy', threshold: 50 },
+		'shop': { stat: 'sleep', threshold: 0, sleepDisabled: true } // Special case for shop
 	};
 	
 	// Check each action button
@@ -836,8 +865,8 @@ function updateButtonStates(stats) {
 		const statName = statConfig.stat;
 		const threshold = statConfig.threshold;
 		const statValue = stats[statName];
-		const button = document.querySelector(`[data-action="${action}"]`);
-		
+		const button = document.querySelector(`[data-action="${action}"]`) || document.getElementById(`${action}-btn`);
+
 		if (button && statValue !== undefined) {
 			// Special handling for sleep button
 			if (action === 'sleep') {
@@ -854,6 +883,21 @@ function updateButtonStates(stats) {
 					button.style.cursor = 'pointer';
 					button.title = `Take rest to restore energy`;
 					console.log(`Enabled ${action} button - ${statName} is ${statValue}% (max: 50%)`);
+				}
+			} else if (action === 'shop' && statConfig.sleepDisabled) {
+				// Special handling for shop button - disabled during sleep
+				if (isSleeping) {
+					button.disabled = true;
+					button.style.opacity = '0.5';
+					button.style.cursor = 'not-allowed';
+					button.title = 'Cannot shop while pet is sleeping';
+					console.log(`Disabled ${action} button - pet is sleeping`);
+				} else {
+					button.disabled = false;
+					button.style.opacity = '1';
+					button.style.cursor = 'pointer';
+					button.title = 'Buy food to replenish your inventory';
+					console.log(`Enabled ${action} button - pet is awake`);
 				}
 			} else {
 				// Regular threshold check for other buttons
@@ -1255,8 +1299,9 @@ function updateFoodButtonStates() {
 
 function disableAllActions(disabled) {
 	const actionButtons = document.querySelectorAll('.action-btn');
+	const shopButton = document.getElementById('shop-btn');
 	const testButtons = document.querySelectorAll('.test-btn');
-	
+
 	actionButtons.forEach(button => {
 		button.disabled = disabled;
 		button.style.opacity = disabled ? '0.5' : '1';
@@ -1264,7 +1309,16 @@ function disableAllActions(disabled) {
 			button.title = 'Pet is sleeping - actions disabled';
 		}
 	});
-	
+
+	// Disable shop button during sleep
+	if (shopButton) {
+		shopButton.disabled = disabled;
+		shopButton.style.opacity = disabled ? '0.5' : '1';
+		if (disabled) {
+			shopButton.title = 'Cannot shop while pet is sleeping';
+		}
+	}
+
 	testButtons.forEach(button => {
 		button.disabled = disabled;
 		button.style.opacity = disabled ? '0.5' : '1';
@@ -1301,10 +1355,10 @@ function updateStorageQuantities(inventory) {
 	Object.keys(inventory).forEach(foodType => {
 		const quantity = inventory[foodType];
 		const quantityElement = document.getElementById(`storage-${foodType}`);
-		
+
 		if (quantityElement) {
 			quantityElement.textContent = quantity;
-			
+
 			// Update styling based on quantity
 			quantityElement.classList.remove('zero', 'low');
 			if (quantity === 0) {
@@ -1314,11 +1368,228 @@ function updateStorageQuantities(inventory) {
 			}
 		}
 	});
-	
+
 	console.log('📦 Storage quantities updated:', inventory);
 }
 
+// Shop modal functions
+function showShopModal() {
+	// Check if pet is sleeping
+	if (isSleeping) {
+		showActionFeedback('Cannot shop while pet is sleeping', false);
+		return;
+	}
+
+	const shopModal = document.getElementById('shop-modal');
+	if (shopModal) {
+		// Update shop quantities and coin display before showing
+		updateShopDisplay(currentInventory);
+		shopModal.style.display = 'flex';
+
+		// Add fade-in animation
+		shopModal.style.opacity = '0';
+		setTimeout(() => {
+			shopModal.style.opacity = '1';
+		}, 10);
+
+		console.log('🛍️ Shop modal opened');
+	}
+}
+
+function hideShopModal() {
+	const shopModal = document.getElementById('shop-modal');
+	if (shopModal) {
+		shopModal.style.display = 'none';
+		console.log('🛍️ Shop modal closed');
+	}
+}
+
+function updateShopDisplay(inventory) {
+	const coins = inventory.coins || 0;
+
+	// Update coin display
+	const coinElement = document.getElementById('shop-coins');
+	if (coinElement) {
+		coinElement.textContent = coins;
+	}
+
+	// Update quantity selectors based on affordability
+	updateQuantityLimits(coins);
+
+	console.log('🛍️ Shop display updated:', inventory);
+}
+
+function updateQuantityLimits(coins) {
+	const foodItems = ['tree_seed', 'mushroom', 'blueberries'];
+	const prices = { tree_seed: 1, mushroom: 2, blueberries: 3 };
+
+	foodItems.forEach(foodType => {
+		const price = prices[foodType];
+		const maxAffordable = Math.floor(coins / price);
+		const qtyInput = document.getElementById(`qty-${foodType}`);
+		const buyButton = document.getElementById(`buy-${foodType}`);
+
+		if (qtyInput) {
+			// Set max attribute to affordable amount
+			qtyInput.max = maxAffordable;
+
+			// If current value exceeds max affordable, adjust it
+			const currentValue = parseInt(qtyInput.value) || 1;
+			if (currentValue > maxAffordable) {
+				qtyInput.value = maxAffordable || 1;
+				updateTotalCost(foodType);
+			}
+		}
+
+		if (buyButton) {
+			buyButton.disabled = maxAffordable < 1;
+		}
+	});
+}
+
+function setupQuantitySelectors() {
+	const minusButtons = document.querySelectorAll('.minus-btn');
+	const plusButtons = document.querySelectorAll('.plus-btn');
+	const qtyInputs = document.querySelectorAll('.qty-input');
+
+	minusButtons.forEach(button => {
+		button.addEventListener('click', function() {
+			const foodType = this.dataset.food;
+			const qtyInput = document.getElementById(`qty-${foodType}`);
+			if (qtyInput) {
+				const currentValue = parseInt(qtyInput.value) || 1;
+				const newValue = Math.max(1, currentValue - 1);
+				qtyInput.value = newValue;
+				updateTotalCost(foodType);
+			}
+		});
+	});
+
+	plusButtons.forEach(button => {
+		button.addEventListener('click', function() {
+			const foodType = this.dataset.food;
+			const qtyInput = document.getElementById(`qty-${foodType}`);
+			if (qtyInput) {
+				const currentValue = parseInt(qtyInput.value) || 1;
+				const maxValue = parseInt(qtyInput.max) || 100;
+				const newValue = Math.min(maxValue, currentValue + 1);
+				qtyInput.value = newValue;
+				updateTotalCost(foodType);
+			}
+		});
+	});
+
+	qtyInputs.forEach(input => {
+		input.addEventListener('input', function() {
+			const foodType = this.id.replace('qty-', '');
+			let value = parseInt(this.value) || 1;
+
+			// Ensure value is within bounds
+			const min = parseInt(this.min) || 1;
+			const max = parseInt(this.max) || 100;
+			value = Math.max(min, Math.min(max, value));
+
+			this.value = value;
+			updateTotalCost(foodType);
+		});
+
+		input.addEventListener('change', function() {
+			const foodType = this.id.replace('qty-', '');
+			updateTotalCost(foodType);
+		});
+	});
+}
+
+function updateTotalCost(foodType) {
+	const prices = { tree_seed: 1, mushroom: 2, blueberries: 3 };
+	const price = prices[foodType];
+	const qtyInput = document.getElementById(`qty-${foodType}`);
+	const totalElement = document.getElementById(`total-${foodType}`);
+
+	if (qtyInput && totalElement) {
+		const quantity = parseInt(qtyInput.value) || 1;
+		const total = price * quantity;
+		totalElement.textContent = total;
+	}
+}
+
+function setupBuyButtons() {
+	const buyButtons = document.querySelectorAll('.buy-btn');
+
+	buyButtons.forEach(button => {
+		button.addEventListener('click', function() {
+			const foodType = this.dataset.food;
+			const qtyInput = document.getElementById(`qty-${foodType}`);
+
+			if (qtyInput) {
+				const quantity = parseInt(qtyInput.value) || 1;
+				buyFood(foodType, quantity);
+			}
+		});
+	});
+}
+
+async function buyFood(foodType, quantity) {
+	try {
+		// Disable button during purchase
+		const buyButton = document.getElementById(`buy-${foodType}`);
+		if (buyButton) {
+			buyButton.disabled = true;
+			buyButton.textContent = 'Buying...';
+		}
+
+		const response = await fetch('/api/shop/purchase', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({
+				food_type: foodType,
+				quantity: quantity
+			})
+		});
+
+		const data = await response.json();
+
+		if (data.success) {
+			// Update inventory and display
+			updateInventoryDisplay(data.inventory);
+
+			// Show success message
+			showActionFeedback(`Bought ${quantity} ${foodType.replace('_', ' ')}!`, true);
+
+			// Reset quantity to 1
+			const qtyInput = document.getElementById(`qty-${foodType}`);
+			if (qtyInput) {
+				qtyInput.value = 1;
+				updateTotalCost(foodType);
+			}
+		} else {
+			showActionFeedback(data.error, false);
+		}
+	} catch (error) {
+		console.error('Shop purchase failed:', error);
+		showActionFeedback('Purchase failed', false);
+	} finally {
+		// Re-enable button
+		if (buyButton) {
+			buyButton.disabled = false;
+			buyButton.textContent = 'Buy';
+		}
+	}
+}
+
+// Initialize stat bar widths from data-value attributes
+function initializeStatBars() {
+	const statFills = document.querySelectorAll('.fill[data-value]');
+	statFills.forEach(fill => {
+		const value = parseInt(fill.getAttribute('data-value')) || 50;
+		fill.style.width = `${value}%`;
+	});
+}
+
 window.addEventListener('load', () => {
+	initializeStatBars();
 	new Phaser.Game(config);
 });
 

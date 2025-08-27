@@ -138,7 +138,8 @@ def pet_action():
 			"inventory": {
 				"tree_seed": current_user.inventory.tree_seed,
 				"blueberries": current_user.inventory.blueberries,
-				"mushroom": current_user.inventory.mushroom
+				"mushroom": current_user.inventory.mushroom,
+				"coins": current_user.inventory.coins
 			},
 			"stats": {
 				"hunger": pet.hunger,
@@ -271,7 +272,8 @@ def get_pet_stats():
 		inventory_data = {
 			"tree_seed": current_user.inventory.tree_seed,
 			"blueberries": current_user.inventory.blueberries,
-			"mushroom": current_user.inventory.mushroom
+			"mushroom": current_user.inventory.mushroom,
+			"coins": current_user.inventory.coins
 		}
 	
 	return jsonify({
@@ -290,18 +292,87 @@ def get_pet_stats():
 	})
 
 
+@bp.route("/api/shop/purchase", methods=["POST"])
+@login_required
+def shop_purchase():
+	if not current_user.pet:
+		return jsonify({"error": "No pet found"}), 404
+
+	if not current_user.inventory:
+		return jsonify({"error": "No inventory found"}), 404
+
+	# Check if pet is sleeping
+	if current_user.pet.is_sleeping:
+		return jsonify({"error": "Cannot shop while pet is sleeping"}), 400
+
+	food_type = request.json.get("food_type")
+	quantity = request.json.get("quantity", 1)
+
+	if not food_type or food_type not in ["tree_seed", "blueberries", "mushroom"]:
+		return jsonify({"error": "Invalid food type"}), 400
+
+	if quantity < 1 or quantity > 100:
+		return jsonify({"error": "Quantity must be between 1 and 100"}), 400
+
+	# Define prices
+	prices = {
+		"tree_seed": 1,
+		"blueberries": 3,
+		"mushroom": 2
+	}
+
+	price_per_unit = prices[food_type]
+	total_cost = price_per_unit * quantity
+
+	# Check if user can afford
+	if not current_user.inventory.can_afford(total_cost):
+		return jsonify({"error": f"Insufficient coins. Need {total_cost}, have {current_user.inventory.coins}"}), 400
+
+	# Check if adding would exceed inventory limit
+	current_quantity = getattr(current_user.inventory, food_type)
+	if current_quantity + quantity > 100:
+		max_affordable = 100 - current_quantity
+		return jsonify({"error": f"Inventory full. Can buy maximum {max_affordable} more"}), 400
+
+	# Process purchase
+	if not current_user.inventory.spend_coins(total_cost):
+		return jsonify({"error": "Failed to process payment"}), 500
+
+	if not current_user.inventory.add_food(food_type, quantity):
+		# Refund coins if food addition fails
+		current_user.inventory.add_coins(total_cost)
+		return jsonify({"error": "Failed to add food to inventory"}), 500
+
+	db.session.commit()
+
+	print(f"SHOP: {current_user.username} bought {quantity} {food_type} for {total_cost} coins")
+
+	return jsonify({
+		"success": True,
+		"food_type": food_type,
+		"quantity": quantity,
+		"total_cost": total_cost,
+		"inventory": {
+			"tree_seed": current_user.inventory.tree_seed,
+			"blueberries": current_user.inventory.blueberries,
+			"mushroom": current_user.inventory.mushroom,
+			"coins": current_user.inventory.coins
+		}
+	})
+
+
 @bp.route("/api/pet/test-action", methods=["POST"])
 @login_required
 def pet_test_action():
 	if not current_user.pet:
 		return jsonify({"error": "No pet found"}), 404
-	
+
 	test_action = request.json.get("test_action")
 	if not test_action or test_action not in ["reduce-hunger", "reduce-energy"]:
 		return jsonify({"error": "Invalid test action"}), 400
-	
+
 	pet = current_user.pet
-	
+
 	# Reduce the corresponding stat by 10 points
 	if test_action == "reduce-hunger":
 		pet.hunger = max(0, pet.hunger - 10)
@@ -309,9 +380,9 @@ def pet_test_action():
 	elif test_action == "reduce-energy":
 		pet.energy = max(0, pet.energy - 10)
 		pet.energy = round(pet.energy, 1)
-	
+
 	db.session.commit()
-	
+
 	return jsonify({
 		"success": True,
 		"test_action": test_action,

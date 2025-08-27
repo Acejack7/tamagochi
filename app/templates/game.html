@@ -20,30 +20,30 @@
 			<div class="stat-bar">
 				<label>Hunger</label>
 				<div class="bar">
-					<div class="fill" style="width: {{ pet.hunger }}%"></div>
+					<div class="fill hunger-fill" data-value="{{ pet.hunger|default(50) }}"></div>
 				</div>
-				<span>{{ pet.hunger }}%</span>
+				<span>{{ pet.hunger|default(50) }}%</span>
 			</div>
 			<div class="stat-bar">
 				<label>Happiness</label>
 				<div class="bar">
-					<div class="fill" style="width: {{ pet.happiness }}%"></div>
+					<div class="fill happiness-fill" data-value="{{ pet.happiness|default(50) }}"></div>
 				</div>
-				<span>{{ pet.happiness }}%</span>
+				<span>{{ pet.happiness|default(50) }}%</span>
 			</div>
 			<div class="stat-bar">
 				<label>Cleanliness</label>
 				<div class="bar">
-					<div class="fill" style="width: {{ pet.cleanliness }}%"></div>
+					<div class="fill cleanliness-fill" data-value="{{ pet.cleanliness|default(50) }}"></div>
 				</div>
-				<span>{{ pet.cleanliness }}%</span>
+				<span>{{ pet.cleanliness|default(50) }}%</span>
 			</div>
 			<div class="stat-bar">
 				<label>Energy</label>
 				<div class="bar">
-					<div class="fill" style="width: {{ pet.energy }}%"></div>
+					<div class="fill energy-fill" data-value="{{ pet.energy|default(50) }}"></div>
 				</div>
-				<span>{{ pet.energy }}%</span>
+				<span>{{ pet.energy|default(50) }}%</span>
 			</div>
 		</div>
 
@@ -92,6 +92,7 @@
 			
 			<div class="utility-buttons">
 				<button class="storage-btn" id="storage-btn">📦 Storage</button>
+				<button class="shop-btn" id="shop-btn">🛍️ Shop</button>
 			</div>
 			
 			<!-- Food selection menu -->
@@ -148,7 +149,7 @@
 							</div>
 							<div class="item-quantity" id="storage-tree_seed">{{ inventory.tree_seed if inventory else 0 }}</div>
 						</div>
-						
+
 						<div class="storage-item" data-item="blueberries">
 							<div class="item-icon">
 								<img src="{{ url_for('static', filename='img/blueberry.png') }}" alt="Blueberries">
@@ -159,7 +160,7 @@
 							</div>
 							<div class="item-quantity" id="storage-blueberries">{{ inventory.blueberries if inventory else 0 }}</div>
 						</div>
-						
+
 						<div class="storage-item" data-item="mushroom">
 							<div class="item-icon">
 								<img src="{{ url_for('static', filename='img/mushroom.png') }}" alt="Mushroom">
@@ -173,6 +174,109 @@
 					</div>
 					<div class="storage-footer">
 						<p class="storage-note">💡 Use the Feed button to give food to your pet</p>
+					</div>
+				</div>
+			</div>
+
+			<!-- Shop modal -->
+			<div id="shop-modal" class="shop-modal" style="display: none;">
+				<div class="shop-content">
+					<div class="shop-header">
+						<h3>🛍️ Pet Shop</h3>
+						<button class="close-btn" id="close-shop">&times;</button>
+					</div>
+					<div class="coin-display">
+						<img src="{{ url_for('static', filename='img/coins.png') }}" alt="Coins" class="coin-icon">
+						<span class="coin-amount" id="shop-coins">{{ inventory.coins if inventory else 100 }}</span>
+						<span class="coin-label">coins</span>
+					</div>
+					<div class="shop-items">
+						<div class="shop-item" data-food="tree_seed" data-price="1">
+							<div class="shop-item-icon">
+								<img src="{{ url_for('static', filename='img/tree_seed.png') }}" alt="Tree Seed">
+							</div>
+							<div class="shop-item-info">
+								<div class="shop-item-name">Tree Seed</div>
+								<div class="shop-item-description">+5 Hunger • Max 100</div>
+								<div class="shop-item-price">
+									<img src="{{ url_for('static', filename='img/coins.png') }}" alt="Coins" class="price-coin-icon">
+									<span class="price-amount">1</span>
+									<span class="price-per-unit">each</span>
+								</div>
+							</div>
+							<div class="quantity-selector">
+								<button class="qty-btn minus-btn" data-food="tree_seed">-</button>
+								<input type="number" class="qty-input" id="qty-tree_seed" value="1" min="1" max="100">
+								<button class="qty-btn plus-btn" data-food="tree_seed">+</button>
+							</div>
+							<div class="purchase-section">
+								<div class="total-cost">
+									Total: <span id="total-tree_seed">1</span> coins
+								</div>
+								<button class="buy-btn" id="buy-tree_seed" data-food="tree_seed">
+									Buy
+								</button>
+							</div>
+						</div>
+
+						<div class="shop-item" data-food="mushroom" data-price="2">
+							<div class="shop-item-icon">
+								<img src="{{ url_for('static', filename='img/mushroom.png') }}" alt="Mushroom">
+							</div>
+							<div class="shop-item-info">
+								<div class="shop-item-name">Mushroom</div>
+								<div class="shop-item-description">+10 Hunger • Max 100</div>
+								<div class="shop-item-price">
+									<img src="{{ url_for('static', filename='img/coins.png') }}" alt="Coins" class="price-coin-icon">
+									<span class="price-amount">2</span>
+									<span class="price-per-unit">each</span>
+								</div>
+							</div>
+							<div class="quantity-selector">
+								<button class="qty-btn minus-btn" data-food="mushroom">-</button>
+								<input type="number" class="qty-input" id="qty-mushroom" value="1" min="1" max="100">
+								<button class="qty-btn plus-btn" data-food="mushroom">+</button>
+							</div>
+							<div class="purchase-section">
+								<div class="total-cost">
+									Total: <span id="total-mushroom">2</span> coins
+								</div>
+								<button class="buy-btn" id="buy-mushroom" data-food="mushroom">
+									Buy
+								</button>
+							</div>
+						</div>
+
+						<div class="shop-item" data-food="blueberries" data-price="3">
+							<div class="shop-item-icon">
+								<img src="{{ url_for('static', filename='img/blueberry.png') }}" alt="Blueberries">
+							</div>
+							<div class="shop-item-info">
+								<div class="shop-item-name">Blueberries</div>
+								<div class="shop-item-description">+15 Hunger • Max 100</div>
+								<div class="shop-item-price">
+									<img src="{{ url_for('static', filename='img/coins.png') }}" alt="Coins" class="price-coin-icon">
+									<span class="price-amount">3</span>
+									<span class="price-per-unit">each</span>
+								</div>
+							</div>
+							<div class="quantity-selector">
+								<button class="qty-btn minus-btn" data-food="blueberries">-</button>
+								<input type="number" class="qty-input" id="qty-blueberries" value="1" min="1" max="100">
+								<button class="qty-btn plus-btn" data-food="blueberries">+</button>
+							</div>
+							<div class="purchase-section">
+								<div class="total-cost">
+									Total: <span id="total-blueberries">3</span> coins
+								</div>
+								<button class="buy-btn" id="buy-blueberries" data-food="blueberries">
+									Buy
+								</button>
+							</div>
+						</div>
+					</div>
+					<div class="shop-footer">
+						<p class="shop-note">💰 Buy food to replenish your inventory</p>
 					</div>
 				</div>
 			</div>

@@ -139,12 +139,15 @@ class Inventory(db.Model):
 
 	id = db.Column(db.Integer, primary_key=True)
 	owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, unique=True)
-	
-	# Food quantities
+
+	# Currency
+	coins = db.Column(db.Integer, nullable=False, default=100)
+
+	# Food quantities (max 100 each)
 	tree_seed = db.Column(db.Integer, nullable=False, default=5)
 	blueberries = db.Column(db.Integer, nullable=False, default=5)
 	mushroom = db.Column(db.Integer, nullable=False, default=5)
-	
+
 	created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 	
 	# Relationships
@@ -169,13 +172,44 @@ class Inventory(db.Model):
 		return True
 	
 	def add_food(self, food_type: str, quantity: int) -> bool:
-		"""Add food to inventory. Returns True if successful"""
+		"""Add food to inventory. Returns True if successful (respects max 100 limit)"""
 		if food_type not in FOOD_TYPES:
 			return False
-		
+
 		current_quantity = getattr(self, food_type, 0)
-		setattr(self, food_type, current_quantity + quantity)
+		new_quantity = current_quantity + quantity
+
+		# Check if adding would exceed max limit (100)
+		if new_quantity > 100:
+			return False
+
+		setattr(self, food_type, new_quantity)
 		return True
+
+	def can_afford(self, cost: int) -> bool:
+		"""Check if user can afford the given cost"""
+		return self.coins >= cost
+
+	def spend_coins(self, amount: int) -> bool:
+		"""Spend coins. Returns True if successful"""
+		if self.coins < amount:
+			return False
+
+		self.coins -= amount
+		return True
+
+	def add_coins(self, amount: int) -> bool:
+		"""Add coins (respects max 10,000 limit). Returns True if successful"""
+		new_total = self.coins + amount
+		if new_total > 10000:
+			self.coins = 10000  # Set to max
+		else:
+			self.coins = new_total
+		return True
+
+	def get_max_affordable(self, price_per_unit: int) -> int:
+		"""Get maximum quantity user can afford at given price"""
+		return self.coins // price_per_unit
 
 
 @login_manager.user_loader
