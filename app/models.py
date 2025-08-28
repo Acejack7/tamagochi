@@ -51,6 +51,12 @@ class Pet(db.Model):
 	sleep_start_time = db.Column(db.DateTime, nullable=True)
 	sleep_type = db.Column(db.String(10), nullable=True)  # 'nap' or 'sleep'
 	sleep_end_time = db.Column(db.DateTime, nullable=True)
+	
+	# Wash state tracking
+	is_washing = db.Column(db.Boolean, nullable=False, default=False)
+	wash_start_time = db.Column(db.DateTime, nullable=True)
+	wash_type = db.Column(db.String(15), nullable=True)  # 'wash_hands', 'shower', or 'bath'
+	wash_end_time = db.Column(db.DateTime, nullable=True)
 
 	# Relationships
 	owner = db.relationship("User", back_populates="pet")
@@ -132,6 +138,32 @@ class Pet(db.Model):
 		self.sleep_type = None
 		self.sleep_end_time = None
 		print("SLEEP DEBUG: Pet has woken up")
+	
+	def check_wash_finish(self):
+		"""Check if pet should finish washing"""
+		if not self.is_washing or not self.wash_end_time:
+			print("WASH DEBUG: check_wash_finish called but pet not washing or no end time")
+			return
+		
+		now = datetime.utcnow()
+		print(f"WASH DEBUG: Checking wash finish - now: {now}, wash_end_time: {self.wash_end_time}")
+		
+		# Check if wash end time has passed
+		if now >= self.wash_end_time:
+			wash_duration = (now - self.wash_start_time).total_seconds()
+			print(f"WASH DEBUG: Pet finished washing after {wash_duration:.0f} seconds of {self.wash_type}")
+			self.finish_washing()
+		else:
+			remaining = (self.wash_end_time - now).total_seconds()
+			print(f"WASH DEBUG: Pet still washing, {remaining:.0f} seconds remaining")
+	
+	def finish_washing(self):
+		"""Finish washing the pet"""
+		self.is_washing = False
+		self.wash_start_time = None
+		self.wash_type = None
+		self.wash_end_time = None
+		print("WASH DEBUG: Pet has finished washing")
 
 
 class Inventory(db.Model):

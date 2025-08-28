@@ -83,10 +83,29 @@
 				</div>
 			</div>
 			
+			<!-- Wash progress overlay -->
+			<div id="wash-overlay" class="wash-overlay" style="display: none;">
+				<div class="wash-content">
+					<div class="wash-header">
+						<span class="wash-emoji">🚿</span>
+						<h3 id="wash-title">Pet is washing...</h3>
+					</div>
+					<div class="wash-progress-container">
+						<div class="progress-label">Wash Progress</div>
+						<div id="wash-progress-bar" class="wash-progress-bar">
+							<div id="wash-progress-fill" class="wash-progress-fill"></div>
+							<div id="wash-progress-text" class="wash-progress-text">0%</div>
+						</div>
+						<div id="wash-timer" class="wash-timer">Time remaining: --:--</div>
+					</div>
+					<p class="wash-description">Your pet is washing and cannot perform any actions until washing is complete.</p>
+				</div>
+			</div>
+			
 			<div class="action-buttons">
 				<button class="action-btn" data-action="feed">Feed</button>
 				<button class="action-btn" data-action="play">Play</button>
-				<button class="action-btn" data-action="bath">Bath</button>
+				<button class="action-btn" data-action="wash">Wash</button>
 				<button class="action-btn" data-action="sleep">Take rest</button>
 			</div>
 			
@@ -129,6 +148,26 @@
 					</button>
 				</div>
 				<button id="cancel-sleep" class="cancel-btn">Cancel</button>
+			</div>
+			
+			<!-- Wash selection menu -->
+			<div id="wash-menu" class="wash-menu" style="display: none;">
+				<h3>Choose wash type:</h3>
+				<div class="wash-options">
+					<button class="wash-btn" data-wash="wash_hands">
+						<img src="{{ url_for('static', filename='img/washbasin.png') }}" alt="Wash Hands">
+						<span>Wash Hands (+15)</span>
+					</button>
+					<button class="wash-btn" data-wash="shower">
+						<img src="{{ url_for('static', filename='img/shower_cabin.png') }}" alt="Take Shower">
+						<span>Take Shower (+60)</span>
+					</button>
+					<button class="wash-btn" data-wash="bath">
+						<img src="{{ url_for('static', filename='img/bath.png') }}" alt="Take Bath">
+						<span>Take Bath (+80)</span>
+					</button>
+				</div>
+				<button id="cancel-wash" class="cancel-btn">Cancel</button>
 			</div>
 			
 			<!-- Storage modal -->
@@ -285,6 +324,7 @@
 			<div class="test-buttons">
 				<button class="test-btn" data-test="reduce-hunger">Reduce Hunger (-10)</button>
 				<button class="test-btn" data-test="reduce-energy">Reduce Energy (-10)</button>
+				<button class="test-btn" data-test="reduce-cleanliness">Reduce Cleanliness (-10)</button>
 				<button class="test-btn" onclick="testSleep(); event.stopPropagation();">🧪 TEST SLEEP</button>
 			</div>
 		</div>

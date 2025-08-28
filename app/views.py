@@ -75,7 +75,7 @@ def pet_action():
 		return jsonify({"error": "No pet found"}), 404
 	
 	action = request.json.get("action")
-	if not action or action not in ["feed", "play", "bath", "sleep"]:
+	if not action or action not in ["feed", "play", "wash", "sleep"]:
 		return jsonify({"error": "Invalid action"}), 400
 	
 	pet = current_user.pet
@@ -152,10 +152,68 @@ def pet_action():
 		pet.happiness = min(100, pet.happiness + 25)
 		pet.last_played = datetime.utcnow()
 		pet.happiness = round(pet.happiness, 1)
-	elif action == "bath":
-		pet.cleanliness = min(100, pet.cleanliness + 25)
+	elif action == "wash":
+		# Get wash type from request
+		wash_type = request.json.get("wash_type")
+		if not wash_type:
+			return jsonify({"error": "Wash type is required for wash action"}), 400
+		
+		# Validate wash type
+		if wash_type not in ['wash_hands', 'shower', 'bath']:
+			return jsonify({"error": "Invalid wash type"}), 400
+		
+		# Check cleanliness restrictions (all wash types require cleanliness 85 or lower)
+		if pet.cleanliness > 85:
+			return jsonify({"error": "Cleanliness too high for washing (max 85%)"}), 400
+		
+		# Apply cleanliness restoration
+		old_cleanliness = pet.cleanliness
+		now = datetime.utcnow()
+		
+		# Define wash types and their cleanliness values
+		wash_values = {
+			"wash_hands": 15,
+			"shower": 60,
+			"bath": 80
+		}
+		
+		cleanliness_increase = wash_values[wash_type]
+		pet.cleanliness = min(100, pet.cleanliness + cleanliness_increase)
 		pet.last_bathed = datetime.utcnow()
 		pet.cleanliness = round(pet.cleanliness, 1)
+		
+		# Set washing state with different durations
+		wash_duration_seconds = {
+			"wash_hands": 5,
+			"shower": 20,
+			"bath": 30
+		}
+		
+		pet.is_washing = True
+		pet.wash_start_time = now
+		pet.wash_type = wash_type
+		pet.wash_end_time = now + timedelta(seconds=wash_duration_seconds[wash_type])
+		
+		print(f"WASH DEBUG: {wash_type} - Cleanliness: {old_cleanliness} -> {pet.cleanliness} (+{cleanliness_increase})")
+		
+		# Commit the changes immediately for wash action
+		db.session.commit()
+		
+		# Return wash type and timing info for frontend display
+		return jsonify({
+			"success": True,
+			"action": action,
+			"wash_type": wash_type,
+			"is_washing": pet.is_washing,
+			"wash_start_time": pet.wash_start_time.isoformat() if pet.wash_start_time else None,
+			"wash_end_time": pet.wash_end_time.isoformat() if pet.wash_end_time else None,
+			"stats": {
+				"hunger": pet.hunger,
+				"happiness": pet.happiness,
+				"cleanliness": pet.cleanliness,
+				"energy": pet.energy
+			}
+		})
 	elif action == "sleep":
 		# Get sleep type from request
 		sleep_type = request.json.get("sleep_type")
@@ -261,6 +319,11 @@ def get_pet_stats():
 		pet.check_wake_up()
 		db.session.commit()
 	
+	# Check if pet should finish washing
+	if pet.is_washing:
+		pet.check_wash_finish()
+		db.session.commit()
+	
 	# Only update stats if at least 30 seconds have passed since any action
 	if time_since_last_action >= 30:
 		pet.update_stats()
@@ -282,6 +345,10 @@ def get_pet_stats():
 		"sleep_type": pet.sleep_type,
 		"sleep_start_time": pet.sleep_start_time.isoformat() if pet.sleep_start_time else None,
 		"sleep_end_time": pet.sleep_end_time.isoformat() if pet.sleep_end_time else None,
+		"is_washing": pet.is_washing,
+		"wash_type": pet.wash_type,
+		"wash_start_time": pet.wash_start_time.isoformat() if pet.wash_start_time else None,
+		"wash_end_time": pet.wash_end_time.isoformat() if pet.wash_end_time else None,
 		"inventory": inventory_data,
 		"stats": {
 			"hunger": pet.hunger,
@@ -368,7 +435,7 @@ def pet_test_action():
 		return jsonify({"error": "No pet found"}), 404
 
 	test_action = request.json.get("test_action")
-	if not test_action or test_action not in ["reduce-hunger", "reduce-energy"]:
+	if not test_action or test_action not in ["reduce-hunger", "reduce-energy", "reduce-cleanliness"]:
 		return jsonify({"error": "Invalid test action"}), 400
 
 	pet = current_user.pet
@@ -380,6 +447,9 @@ def pet_test_action():
 	elif test_action == "reduce-energy":
 		pet.energy = max(0, pet.energy - 10)
 		pet.energy = round(pet.energy, 1)
+	elif test_action == "reduce-cleanliness":
+		pet.cleanliness = max(0, pet.cleanliness - 10)
+		pet.cleanliness = round(pet.cleanliness, 1)
 
 	db.session.commit()
 

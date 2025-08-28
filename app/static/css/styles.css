@@ -537,6 +537,66 @@ main {
 	font-weight: 500;
 }
 
+/* Wash menu styling - same as sleep menu */
+.wash-menu {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	background: #fff;
+	padding: 24px;
+	border-radius: 12px;
+	box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+	z-index: 1000;
+	border: 1px solid #e1e4e8;
+}
+
+.wash-menu h3 {
+	margin: 0 0 16px 0;
+	text-align: center;
+	color: #24292f;
+	font-size: 18px;
+}
+
+.wash-options {
+	display: flex;
+	gap: 12px;
+	margin-bottom: 16px;
+}
+
+.wash-btn {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	padding: 12px;
+	background: #f6f8fa;
+	border: 2px solid #e1e4e8;
+	border-radius: 8px;
+	cursor: pointer;
+	transition: all 0.2s;
+	min-width: 80px;
+}
+
+.wash-btn:hover {
+	background: #e7f0ff;
+	border-color: #0969da;
+	transform: translateY(-2px);
+}
+
+.wash-btn img {
+	width: 40px;
+	height: 40px;
+	object-fit: contain;
+}
+
+.wash-btn span {
+	font-size: 12px;
+	color: #666;
+	text-align: center;
+	font-weight: 500;
+}
+
 /* Game area needs relative positioning for overlay */
 .game-area {
 	position: relative;
@@ -781,6 +841,116 @@ main {
 }
 
 .sleep-description {
+	margin: 16px 0 0 0;
+	color: rgba(255, 255, 255, 0.9);
+	font-size: 14px;
+	line-height: 1.4;
+}
+
+/* Wash overlay styling */
+.wash-overlay {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: rgba(0, 0, 0, 0.8);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1000;
+	border-radius: 12px;
+}
+
+.wash-content {
+	background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+	color: white;
+	padding: 32px;
+	border-radius: 20px;
+	text-align: center;
+	min-width: 350px;
+	box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+	animation: washPulse 3s ease-in-out infinite;
+}
+
+@keyframes washPulse {
+	0%, 100% { transform: scale(1); }
+	50% { transform: scale(1.02); }
+}
+
+.wash-header {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+	margin-bottom: 24px;
+}
+
+.wash-emoji {
+	font-size: 32px;
+	animation: washBounce 2s ease-in-out infinite;
+}
+
+@keyframes washBounce {
+	0%, 100% { transform: scale(1) rotate(0deg); }
+	25% { transform: scale(1.1) rotate(-5deg); }
+	75% { transform: scale(1.1) rotate(5deg); }
+}
+
+.wash-content h3 {
+	margin: 0;
+	color: white;
+	font-size: 22px;
+	font-weight: 600;
+}
+
+.wash-progress-container {
+	margin: 20px 0;
+}
+
+.wash-progress-bar {
+	position: relative;
+	width: 100%;
+	height: 24px;
+	background: rgba(255, 255, 255, 0.2);
+	border-radius: 12px;
+	overflow: hidden;
+	margin-bottom: 16px;
+	border: 2px solid rgba(255, 255, 255, 0.3);
+	box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.wash-progress-fill {
+	height: 100%;
+	background: linear-gradient(90deg, #60a5fa, #3b82f6, #2563eb);
+	border-radius: 10px;
+	transition: width 1s ease;
+	width: 0%;
+	box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+}
+
+.wash-progress-text {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	font-size: 12px;
+	font-weight: 600;
+	color: white;
+	text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+	z-index: 1;
+}
+
+.wash-timer {
+	font-size: 18px;
+	font-weight: 700;
+	color: #ffffff;
+	margin-bottom: 12px;
+	text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+	font-family: 'Courier New', monospace;
+}
+
+.wash-description {
 	margin: 16px 0 0 0;
 	color: rgba(255, 255, 255, 0.9);
 	font-size: 14px;

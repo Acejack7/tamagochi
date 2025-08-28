@@ -231,6 +231,29 @@ async function loadCurrentStats() {
 			} else {
 				console.log('🤔 Unexpected sleep state combination');
 			}
+			
+			// Check if pet is washing and show overlay
+			console.log('📊 loadCurrentStats - checking wash state:', {
+				backendWashing: data.is_washing,
+				frontendWashing: isWashing,
+				washType: data.wash_type,
+				washEndTime: data.wash_end_time,
+				washStartTime: data.wash_start_time
+			});
+			
+			if (data.is_washing && data.wash_end_time) {
+				console.log('🔄 Backend says washing - showing overlay');
+				// For page refresh, calculate the correct remaining time
+				showWashOverlay(data.wash_type, data.wash_end_time, data.wash_start_time);
+			} else if (isWashing && !data.is_washing) {
+				// Pet finished washing on backend, hide overlay
+				console.log('🚿 Backend says pet finished washing - hiding overlay');
+				hideWashOverlay();
+			} else if (!data.is_washing && !isWashing) {
+				console.log('🚿 No wash state change needed');
+			} else {
+				console.log('🤔 Unexpected wash state combination');
+			}
 		}
 	} catch (error) {
 		console.error('Failed to load stats:', error);
@@ -247,6 +270,8 @@ function setupActionButtons() {
 				showFoodMenu();
 			} else if (action === 'sleep') {
 				showSleepMenu();
+			} else if (action === 'wash') {
+				showWashMenu();
 			} else {
 				handleAction(action);
 			}
@@ -281,6 +306,21 @@ function setupActionButtons() {
 	const cancelSleepButton = document.getElementById('cancel-sleep');
 	if (cancelSleepButton) {
 		cancelSleepButton.addEventListener('click', hideSleepMenu);
+	}
+	
+	// Setup wash menu buttons
+	const washButtons = document.querySelectorAll('.wash-btn');
+	washButtons.forEach(button => {
+		button.addEventListener('click', function() {
+			const washType = this.dataset.wash;
+			handleWashAction(washType);
+		});
+	});
+	
+	// Setup cancel wash button
+	const cancelWashButton = document.getElementById('cancel-wash');
+	if (cancelWashButton) {
+		cancelWashButton.addEventListener('click', hideWashMenu);
 	}
 	
 	// Setup storage button
@@ -358,7 +398,7 @@ async function handleAction(action) {
 	const actionToStat = {
 		'feed': { stat: 'hunger', threshold: 80 },
 		'play': { stat: 'happiness', threshold: 75 }, 
-		'bath': { stat: 'cleanliness', threshold: 80 },
+		'wash': { stat: 'cleanliness', threshold: 85 },
 		'sleep': { stat: 'energy', threshold: 50 }
 	};
 	
@@ -636,6 +676,108 @@ function hideSleepMenu() {
 	}
 }
 
+function showWashMenu() {
+	const washMenu = document.getElementById('wash-menu');
+	if (washMenu) {
+		washMenu.style.display = 'block';
+	}
+}
+
+function hideWashMenu() {
+	const washMenu = document.getElementById('wash-menu');
+	if (washMenu) {
+		washMenu.style.display = 'none';
+	}
+}
+
+async function handleWashAction(washType) {
+	// Hide the wash menu
+	hideWashMenu();
+	
+	// Get the wash button
+	const button = document.querySelector('[data-action="wash"]');
+	
+	// Check if button is already disabled
+	if (button && button.disabled) {
+		console.log('Wash action is disabled');
+		return;
+	}
+	
+	// Check cleanliness-based restrictions
+	const statBars = document.querySelectorAll('.stat-bar');
+	let currentCleanliness = null;
+	
+	for (const bar of statBars) {
+		const label = bar.querySelector('label');
+		if (label && label.textContent.toLowerCase() === 'cleanliness') {
+			const valueSpan = bar.querySelector('span');
+			if (valueSpan) {
+				currentCleanliness = parseInt(valueSpan.textContent);
+				break;
+			}
+		}
+	}
+	
+	// Check restrictions: All wash types require cleanliness 85 or lower
+	if (currentCleanliness !== null && currentCleanliness > 85) {
+		console.log(`Wash action blocked - cleanliness is ${currentCleanliness}% (max: 85%)`);
+		showActionFeedback('Wash', false, 'Cleanliness is too high for washing');
+		return;
+	}
+	
+	// Disable button during action
+	if (button) {
+		button.disabled = true;
+		button.style.opacity = '0.6';
+	}
+	
+	try {
+		// Show wash image for 3 seconds
+		showWashImage(washType);
+		
+		// Send AJAX request
+		const response = await fetch('/api/pet/action', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({ action: 'wash', wash_type: washType })
+		});
+		
+		const data = await response.json();
+		
+		console.log('🔍 WASH ACTION RESPONSE:', data);
+		
+		if (data.success) {
+			// Show wash overlay FIRST, before updating stats
+			console.log(`🚿 Checking wash state: is_washing=${data.is_washing}, wash_end_time=${data.wash_end_time}`);
+			if (data.is_washing && data.wash_end_time) {
+				console.log('✅ Triggering wash overlay...');
+				showWashOverlay(data.wash_type, data.wash_end_time);
+			} else {
+				console.log('❌ NOT showing wash overlay - missing data');
+			}
+			
+			// Update all stats and pet appearance AFTER showing overlay
+			updateStatsDisplay(data.stats);
+			
+			// Show success feedback
+			showActionFeedback(`${washType.replace('_', ' ').charAt(0).toUpperCase() + washType.replace('_', ' ').slice(1)} started`, true);
+		} else {
+			showActionFeedback('Wash', false, data.error);
+		}
+	} catch (error) {
+		console.error('Wash action failed:', error);
+		showActionFeedback('Wash', false, 'Network error');
+	} finally {
+		// Re-enable button
+		if (button) {
+			button.disabled = false;
+			button.style.opacity = '1';
+		}
+	}
+}
+
 function showFoodImage(foodType) {
 	if (!gameScene || !pet) return;
 	
@@ -694,6 +836,35 @@ function showSleepImage(sleepType) {
 	pet.setVisible(false);
 	
 	// Set timer to hide sleep image and show pet after 3 seconds
+	foodDisplayTimer = setTimeout(() => {
+		clearFoodDisplay();
+	}, 3000);
+}
+
+function showWashImage(washType) {
+	if (!gameScene || !pet) return;
+	
+	// Clear any existing food display
+	clearFoodDisplay();
+	
+	// Map wash types to image keys
+	const washImageMap = {
+		'wash_hands': 'washbasin',
+		'shower': 'shower_cabin',
+		'bath': 'bath'
+	};
+	
+	const imageKey = washImageMap[washType];
+	if (!imageKey) return;
+	
+	// Create wash sprite
+	foodDisplaySprite = gameScene.add.image(pet.x, pet.y, imageKey);
+	foodDisplaySprite.setScale(1.2);
+	
+	// Hide the pet temporarily
+	pet.setVisible(false);
+	
+	// Set timer to hide wash image and show pet after 3 seconds
 	foodDisplayTimer = setTimeout(() => {
 		clearFoodDisplay();
 	}, 3000);
@@ -772,7 +943,7 @@ function playActionAnimation(action) {
 			});
 			break;
 			
-		case 'bath':
+		case 'wash':
 			// Shake side to side
 			gameScene.tweens.add({
 				targets: pet,
@@ -854,7 +1025,7 @@ function updateButtonStates(stats) {
 	const actionToStat = {
 		'feed': { stat: 'hunger', threshold: 80 },
 		'play': { stat: 'happiness', threshold: 75 },
-		'bath': { stat: 'cleanliness', threshold: 80 },
+		'wash': { stat: 'cleanliness', threshold: 85 },
 		'sleep': { stat: 'energy', threshold: 50 },
 		'shop': { stat: 'sleep', threshold: 0, sleepDisabled: true } // Special case for shop
 	};
@@ -1243,6 +1414,159 @@ function updateSleepProgress() {
 	}
 }
 
+// Wash state management
+let washTimer = null;
+let washEndTime = null;
+let isWashing = false;
+
+function showWashOverlay(washType, endTime, startTime = null) {
+	console.log(`🚿 SHOWING WASH OVERLAY: ${washType} until ${endTime}`);
+	console.log(`🕐 Current time: ${new Date()}`);
+	console.log(`📍 Called from:`, new Error().stack.split('\n')[2]);
+	
+	isWashing = true;
+	
+	// Always work in UTC to match backend
+	// Backend sends UTC times, so we need to compare with UTC
+	if (startTime) {
+		// Ensure we're parsing the UTC time correctly
+		const backendStartTime = new Date(startTime + (startTime.endsWith('Z') ? '' : 'Z')); 
+		const backendEndTime = new Date(endTime + (endTime.endsWith('Z') ? '' : 'Z'));
+		const nowUTC = new Date();
+		
+		// Simple approach: use the backend's actual end time if it's in the future
+		const timeToEnd = backendEndTime - nowUTC;
+		
+		if (timeToEnd > 0) {
+			// Backend end time is in the future, use it directly
+			washEndTime = backendEndTime;
+			console.log(`✅ Using backend end time directly: ${timeToEnd}ms (${Math.round(timeToEnd/1000)}s) remaining`);
+		} else {
+			// Calculate from start time + duration (fallback)
+			const elapsedMs = nowUTC - backendStartTime;
+			const totalDurationMs = washType === 'wash_hands' ? 5000 : washType === 'shower' ? 20000 : 30000; // 5s, 20s, 30s
+			const remainingMs = Math.max(0, totalDurationMs - elapsedMs); // Don't go negative
+			
+			washEndTime = new Date(nowUTC.getTime() + remainingMs);
+			
+			console.log(`⏰ Fallback calculation:`, {
+				backendStartUTC: backendStartTime.toISOString(),
+				nowUTC: nowUTC.toISOString(), 
+				elapsedMs: Math.round(elapsedMs/1000) + 's',
+				totalDurationMs: Math.round(totalDurationMs/1000) + 's', 
+				remainingMs: Math.round(remainingMs/1000) + 's',
+				endTimeUTC: washEndTime.toISOString()
+			});
+		}
+	} else {
+		// No start time provided, calculate from current UTC time
+		const nowUTC = new Date();
+		const washDurationMs = washType === 'wash_hands' ? 5000 : washType === 'shower' ? 20000 : 30000; // 5s, 20s, 30s
+		washEndTime = new Date(nowUTC.getTime() + washDurationMs);
+		console.log(`✅ New wash - end time UTC: ${washEndTime.toISOString()}, local: ${washEndTime.toLocaleString()}`);
+	}
+	
+	// Show wash overlay
+	const overlay = document.getElementById('wash-overlay');
+	const title = document.getElementById('wash-title');
+	if (overlay && title) {
+		title.textContent = washType === 'wash_hands' ? 'Pet is washing hands...' : 
+						   washType === 'shower' ? 'Pet is taking a shower...' : 'Pet is taking a bath...';
+		overlay.style.display = 'flex';
+		console.log('✅ Main wash overlay shown');
+	} else {
+		console.error('❌ Main wash overlay elements not found');
+	}
+	
+	// Disable all action buttons
+	disableAllActions(true);
+	
+	// Start the countdown timer
+	startWashTimer();
+	
+	// Add protection against immediate hiding
+	setTimeout(() => {
+		if (!isWashing) {
+			console.error('🚨 WASH OVERLAY WAS HIDDEN IMMEDIATELY! Something called hideWashOverlay()');
+		}
+	}, 100);
+}
+
+function hideWashOverlay() {
+	console.log('🚿 HIDING WASH OVERLAY');
+	
+	isWashing = false;
+	washEndTime = null;
+	
+	// Hide main wash overlay
+	const overlay = document.getElementById('wash-overlay');
+	if (overlay) {
+		overlay.style.display = 'none';
+		console.log('✅ Main wash overlay hidden');
+	}
+	
+	// Re-enable action buttons
+	disableAllActions(false);
+	
+	// Clear the timer
+	if (washTimer) {
+		clearInterval(washTimer);
+		washTimer = null;
+		console.log('✅ Wash timer cleared');
+	}
+}
+
+function startWashTimer() {
+	if (washTimer) {
+		clearInterval(washTimer);
+	}
+	
+	washTimer = setInterval(updateWashProgress, 1000);
+	updateWashProgress(); // Initial update
+}
+
+function updateWashProgress() {
+	if (!washEndTime) return;
+	
+	const now = new Date();
+	const timeRemaining = washEndTime - now;
+	
+	console.log(`🕐 Wash check: now=${now.toISOString()}, end=${washEndTime.toISOString()}, remaining=${timeRemaining}ms`);
+	
+	if (timeRemaining <= 0) {
+		// Wash finished
+		console.log('⏰ Wash timer finished - hiding overlay');
+		hideWashOverlay();
+		// DON'T call loadCurrentStats() here - it causes infinite loop
+		return;
+	}
+	
+	// Calculate progress - we need to track total duration
+	const washType = document.getElementById('wash-title').textContent.toLowerCase();
+	const totalDurationMs = washType.includes('hands') ? 5000 : washType.includes('shower') ? 20000 : 30000; // 5s, 20s, 30s
+	const elapsedMs = totalDurationMs - timeRemaining;
+	const progressPercent = Math.min(100, Math.max(0, (elapsedMs / totalDurationMs) * 100));
+	
+	// Update main progress bar
+	const progressFill = document.getElementById('wash-progress-fill');
+	const progressText = document.getElementById('wash-progress-text');
+	if (progressFill && progressText) {
+		progressFill.style.width = `${progressPercent}%`;
+		progressText.textContent = `${Math.round(progressPercent)}%`;
+	}
+	
+	// Format time for display
+	const minutes = Math.floor(timeRemaining / 60000);
+	const seconds = Math.floor((timeRemaining % 60000) / 1000);
+	const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+	
+	// Update main timer
+	const timerElement = document.getElementById('wash-timer');
+	if (timerElement) {
+		timerElement.textContent = `Time remaining: ${timeString}`;
+	}
+}
+
 function updateInventoryDisplay(inventory) {
 	// Update global inventory state
 	currentInventory = { ...inventory };
@@ -1306,16 +1630,24 @@ function disableAllActions(disabled) {
 		button.disabled = disabled;
 		button.style.opacity = disabled ? '0.5' : '1';
 		if (disabled) {
-			button.title = 'Pet is sleeping - actions disabled';
+			if (isSleeping) {
+				button.title = 'Pet is sleeping - actions disabled';
+			} else if (isWashing) {
+				button.title = 'Pet is washing - actions disabled';
+			}
 		}
 	});
 
-	// Disable shop button during sleep
+	// Disable shop button during sleep or washing
 	if (shopButton) {
 		shopButton.disabled = disabled;
 		shopButton.style.opacity = disabled ? '0.5' : '1';
 		if (disabled) {
-			shopButton.title = 'Cannot shop while pet is sleeping';
+			if (isSleeping) {
+				shopButton.title = 'Cannot shop while pet is sleeping';
+			} else if (isWashing) {
+				shopButton.title = 'Cannot shop while pet is washing';
+			}
 		}
 	}
 
