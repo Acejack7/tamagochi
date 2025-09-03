@@ -25,7 +25,7 @@
 				<span>{{ pet.hunger|default(50) }}%</span>
 			</div>
 			<div class="stat-bar">
-				<label>Happiness</label>
+				<label>Joy</label>
 				<div class="bar">
 					<div class="fill happiness-fill" data-value="{{ pet.happiness|default(50) }}"></div>
 				</div>
@@ -168,6 +168,22 @@
 					</button>
 				</div>
 				<button id="cancel-wash" class="cancel-btn">Cancel</button>
+			</div>
+			
+			<!-- Play selection menu -->
+			<div id="play-menu" class="play-menu" style="display: none;">
+				<h3>Choose play activity:</h3>
+				<div class="play-options">
+					<button class="play-btn" data-play="play_with_ball">
+						<img src="{{ url_for('static', filename='img/tennis_ball.png') }}" alt="Play with Ball">
+						<span>Play with Ball (+25)</span>
+					</button>
+					<button class="play-btn" data-play="spin_in_wheel">
+						<img src="{{ url_for('static', filename='img/play_wheel.png') }}" alt="Spin in the Wheel">
+						<span>Spin in the Wheel (+25)</span>
+					</button>
+				</div>
+				<button id="cancel-play" class="cancel-btn">Cancel</button>
 			</div>
 			
 			<!-- Storage modal -->
@@ -325,6 +341,7 @@
 				<button class="test-btn" data-test="reduce-hunger">Reduce Hunger (-10)</button>
 				<button class="test-btn" data-test="reduce-energy">Reduce Energy (-10)</button>
 				<button class="test-btn" data-test="reduce-cleanliness">Reduce Cleanliness (-10)</button>
+				<button class="test-btn" data-test="reduce-joy">Reduce Joy (-10)</button>
 				<button class="test-btn" onclick="testSleep(); event.stopPropagation();">🧪 TEST SLEEP</button>
 			</div>
 		</div>

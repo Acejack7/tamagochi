@@ -64,7 +64,8 @@ const PET_SPRITES = {
 		idle: 'squirrel_idle',
 		happy: 'squirrel_happy',
 		hungry: 'squirrel_hungry',
-		sleeping: 'squirrel_sleeping'
+		sleeping: 'squirrel_sleeping',
+		sad: 'squirrel_sad'
 	}
 };
 
@@ -90,6 +91,7 @@ function preload() {
 	this.load.image('squirrel_happy', '/static/sprites/squirrel_happy.png');
 	this.load.image('squirrel_hungry', '/static/sprites/squirrel_hungry.png');
 	this.load.image('squirrel_sleeping', '/static/sprites/squirrel_sleeping.png');
+	this.load.image('squirrel_sad', '/static/sprites/squirrel_sad.png');
 	
 	// Load food images
 	this.load.image('mushroom', '/static/img/mushroom.png');
@@ -100,7 +102,11 @@ function preload() {
 	this.load.image('squirrel_sofa', '/static/img/squirrel_sofa.png');
 	this.load.image('squirrel_bed', '/static/img/squirrel_bed.png');
 	
-	console.log('Squirrel sprites and food images loaded');
+	// Load play images
+	this.load.image('tennis_ball', '/static/img/tennis_ball.png');
+	this.load.image('play_wheel', '/static/img/play_wheel.png');
+	
+	console.log('Squirrel sprites, food, sleep, and play images loaded');
 	
 	// TODO: Load other pet sprites when available
 	// this.load.image('hedgehog_idle', '/static/sprites/hedgehog_idle.png');
@@ -272,6 +278,8 @@ function setupActionButtons() {
 				showSleepMenu();
 			} else if (action === 'wash') {
 				showWashMenu();
+			} else if (action === 'play') {
+				showPlayMenu();
 			} else {
 				handleAction(action);
 			}
@@ -321,6 +329,21 @@ function setupActionButtons() {
 	const cancelWashButton = document.getElementById('cancel-wash');
 	if (cancelWashButton) {
 		cancelWashButton.addEventListener('click', hideWashMenu);
+	}
+	
+	// Setup play menu buttons
+	const playButtons = document.querySelectorAll('.play-btn');
+	playButtons.forEach(button => {
+		button.addEventListener('click', function() {
+			const playType = this.dataset.play;
+			handlePlayAction(playType);
+		});
+	});
+	
+	// Setup cancel play button
+	const cancelPlayButton = document.getElementById('cancel-play');
+	if (cancelPlayButton) {
+		cancelPlayButton.addEventListener('click', hidePlayMenu);
 	}
 	
 	// Setup storage button
@@ -690,6 +713,23 @@ function hideWashMenu() {
 	}
 }
 
+function showPlayMenu() {
+	// Update play button states before showing menu
+	updatePlayButtonStates();
+	
+	const playMenu = document.getElementById('play-menu');
+	if (playMenu) {
+		playMenu.style.display = 'block';
+	}
+}
+
+function hidePlayMenu() {
+	const playMenu = document.getElementById('play-menu');
+	if (playMenu) {
+		playMenu.style.display = 'none';
+	}
+}
+
 async function handleWashAction(washType) {
 	// Hide the wash menu
 	hideWashMenu();
@@ -769,6 +809,86 @@ async function handleWashAction(washType) {
 	} catch (error) {
 		console.error('Wash action failed:', error);
 		showActionFeedback('Wash', false, 'Network error');
+	} finally {
+		// Re-enable button
+		if (button) {
+			button.disabled = false;
+			button.style.opacity = '1';
+		}
+	}
+}
+
+async function handlePlayAction(playType) {
+	// Hide the play menu
+	hidePlayMenu();
+	
+	// Get the play button
+	const button = document.querySelector('[data-action="play"]');
+	
+	// Check if button is already disabled
+	if (button && button.disabled) {
+		console.log('Play action is disabled');
+		return;
+	}
+	
+	// Check joy-based restrictions
+	const statBars = document.querySelectorAll('.stat-bar');
+	let currentJoy = null;
+	
+	for (const bar of statBars) {
+		const label = bar.querySelector('label');
+		if (label && label.textContent.toLowerCase() === 'joy') {
+			const valueSpan = bar.querySelector('span');
+			if (valueSpan) {
+				currentJoy = parseInt(valueSpan.textContent);
+				break;
+			}
+		}
+	}
+	
+	// Check restrictions: All play types require joy 90 or lower
+	if (currentJoy !== null && currentJoy >= 90) {
+		console.log(`Play action blocked - joy is ${currentJoy}% (max: 89%)`);
+		showActionFeedback('Play', false, 'Joy is too high for playing (max 89%)');
+		return;
+	}
+	
+	// Disable button during action
+	if (button) {
+		button.disabled = true;
+		button.style.opacity = '0.6';
+	}
+	
+	try {
+		// Show play image for 3 seconds
+		showPlayImage(playType);
+		
+		// Send AJAX request
+		const response = await fetch('/api/pet/action', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({ action: 'play', play_type: playType })
+		});
+		
+		const data = await response.json();
+		
+		console.log('🔍 PLAY ACTION RESPONSE:', data);
+		
+		if (data.success) {
+			// Update all stats and pet appearance
+			updateStatsDisplay(data.stats);
+			
+			// Show success feedback
+			const actionName = playType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+			showActionFeedback(`${actionName}`, true);
+		} else {
+			showActionFeedback('Play', false, data.error);
+		}
+	} catch (error) {
+		console.error('Play action failed:', error);
+		showActionFeedback('Play', false, 'Network error');
 	} finally {
 		// Re-enable button
 		if (button) {
@@ -865,6 +985,34 @@ function showWashImage(washType) {
 	pet.setVisible(false);
 	
 	// Set timer to hide wash image and show pet after 3 seconds
+	foodDisplayTimer = setTimeout(() => {
+		clearFoodDisplay();
+	}, 3000);
+}
+
+function showPlayImage(playType) {
+	if (!gameScene || !pet) return;
+	
+	// Clear any existing food display
+	clearFoodDisplay();
+	
+	// Map play types to image keys
+	const playImageMap = {
+		'play_with_ball': 'tennis_ball',
+		'spin_in_wheel': 'play_wheel'
+	};
+	
+	const imageKey = playImageMap[playType];
+	if (!imageKey) return;
+	
+	// Create play sprite
+	foodDisplaySprite = gameScene.add.image(pet.x, pet.y, imageKey);
+	foodDisplaySprite.setScale(1.2);
+	
+	// Hide the pet temporarily
+	pet.setVisible(false);
+	
+	// Set timer to hide play image and show pet after 3 seconds
 	foodDisplayTimer = setTimeout(() => {
 		clearFoodDisplay();
 	}, 3000);
@@ -986,9 +1134,12 @@ function updateStatsDisplay(stats) {
 		const statBars = document.querySelectorAll('.stat-bar');
 		let targetBar = null;
 		
+		// Map "happiness" to "joy" for display purposes
+		const displayStatName = statName === 'happiness' ? 'joy' : statName;
+		
 		for (const bar of statBars) {
 			const label = bar.querySelector('label');
-			if (label && label.textContent.toLowerCase() === statName) {
+			if (label && label.textContent.toLowerCase() === displayStatName) {
 				targetBar = bar;
 				break;
 			}
@@ -1024,7 +1175,7 @@ function updateButtonStates(stats) {
 	// Define which action corresponds to which stat and their thresholds
 	const actionToStat = {
 		'feed': { stat: 'hunger', threshold: 80 },
-		'play': { stat: 'happiness', threshold: 75 },
+		'play': { stat: 'happiness', threshold: 89 }, // Changed to 89 (joy < 90)
 		'wash': { stat: 'cleanliness', threshold: 85 },
 		'sleep': { stat: 'energy', threshold: 50 },
 		'shop': { stat: 'sleep', threshold: 0, sleepDisabled: true } // Special case for shop
@@ -1076,13 +1227,17 @@ function updateButtonStates(stats) {
 					button.disabled = true;
 					button.style.opacity = '0.5';
 					button.style.cursor = 'not-allowed';
-					button.title = `${statName.charAt(0).toUpperCase() + statName.slice(1)} is too high (${statValue}%). Wait until it drops to ${threshold}% or below.`;
+					// Special message for play button (show "Joy" instead of "happiness")
+					const displayStatName = (action === 'play' && statName === 'happiness') ? 'Joy' : statName.charAt(0).toUpperCase() + statName.slice(1);
+					button.title = `${displayStatName} is too high (${statValue}%). Wait until it drops to ${threshold}% or below.`;
 					console.log(`Disabled ${action} button - ${statName} is ${statValue}% (threshold: ${threshold}%)`);
 				} else {
 					button.disabled = false;
 					button.style.opacity = '1';
 					button.style.cursor = 'pointer';
-					button.title = `Use ${action} to improve ${statName}`;
+					// Special message for play button (show "Joy" instead of "happiness")
+					const displayStatName = (action === 'play' && statName === 'happiness') ? 'Joy' : statName;
+					button.title = `Use ${action} to improve ${displayStatName}`;
 					console.log(`Enabled ${action} button - ${statName} is ${statValue}% (threshold: ${threshold}%)`);
 				}
 			}
@@ -1096,9 +1251,9 @@ function updatePetAppearance(stats) {
 	// Determine pet state based on stats
 	let newState = 'idle';
 	
-	// Priority order: sleeping > hungry > happy > idle
+	// Priority order: Energy > Hunger > Joy > Happy > Idle
 	
-	// 1. Check if energy is lower than 30 (sleeping takes priority)
+	// 1. Check if energy is lower than 30 (sleeping takes highest priority)
 	if (stats.energy < 30) {
 		newState = 'sleeping';
 	}
@@ -1106,11 +1261,15 @@ function updatePetAppearance(stats) {
 	else if (stats.hunger < 50) {
 		newState = 'hungry';
 	}
-	// 3. Check if ALL stats are 80 or higher (happy state)
+	// 3. Check if joy (happiness) is lower than 40 (but energy >= 30 and hunger >= 50)
+	else if (stats.happiness < 40) {
+		newState = 'sad';
+	}
+	// 4. Check if ALL stats are 80 or higher (happy state)
 	else if (stats.hunger >= 80 && stats.happiness >= 80 && stats.cleanliness >= 80 && stats.energy >= 80) {
 		newState = 'happy';
 	}
-	// 4. Default to idle state
+	// 5. Default to idle state
 	else {
 		newState = 'idle';
 	}
@@ -1617,6 +1776,42 @@ function updateFoodButtonStates() {
 			button.style.cursor = 'pointer';
 			button.title = `Feed ${foodType.replace('_', ' ')} (${quantity} remaining)`;
 			button.classList.remove('food-disabled');
+		}
+	});
+}
+
+function updatePlayButtonStates() {
+	// Get current joy value from the UI
+	const statBars = document.querySelectorAll('.stat-bar');
+	let currentJoy = null;
+	
+	for (const bar of statBars) {
+		const label = bar.querySelector('label');
+		if (label && label.textContent.toLowerCase() === 'joy') {
+			const valueSpan = bar.querySelector('span');
+			if (valueSpan) {
+				currentJoy = parseInt(valueSpan.textContent);
+				break;
+			}
+		}
+	}
+	
+	// Update play button states
+	const playButtons = document.querySelectorAll('.play-btn');
+	
+	playButtons.forEach(button => {
+		if (currentJoy !== null && currentJoy >= 90) {
+			button.disabled = true;
+			button.style.opacity = '0.5';
+			button.style.cursor = 'not-allowed';
+			button.title = 'Joy is too high for playing (max 89%)';
+			button.classList.add('play-disabled');
+		} else {
+			button.disabled = false;
+			button.style.opacity = '1';
+			button.style.cursor = 'pointer';
+			button.title = `${button.dataset.play.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())} (+25 Joy)`;
+			button.classList.remove('play-disabled');
 		}
 	});
 }

@@ -149,9 +149,26 @@ def pet_action():
 			}
 		})
 	elif action == "play":
+		# Get play type from request
+		play_type = request.json.get("play_type")
+		if not play_type:
+			return jsonify({"error": "Play type is required for play action"}), 400
+		
+		# Validate play type
+		if play_type not in ['play_with_ball', 'spin_in_wheel']:
+			return jsonify({"error": "Invalid play type"}), 400
+		
+		# Check joy restrictions (all play types require joy 90 or lower)
+		if pet.happiness >= 90:
+			return jsonify({"error": "Joy is too high for playing (max 89%)"}), 400
+		
+		# Apply joy restoration (+25 for both play types)
+		old_happiness = pet.happiness
 		pet.happiness = min(100, pet.happiness + 25)
 		pet.last_played = datetime.utcnow()
 		pet.happiness = round(pet.happiness, 1)
+		
+		print(f"PLAY DEBUG: {play_type} - Joy: {old_happiness} -> {pet.happiness} (+25)")
 	elif action == "wash":
 		# Get wash type from request
 		wash_type = request.json.get("wash_type")
@@ -435,7 +452,7 @@ def pet_test_action():
 		return jsonify({"error": "No pet found"}), 404
 
 	test_action = request.json.get("test_action")
-	if not test_action or test_action not in ["reduce-hunger", "reduce-energy", "reduce-cleanliness"]:
+	if not test_action or test_action not in ["reduce-hunger", "reduce-energy", "reduce-cleanliness", "reduce-joy"]:
 		return jsonify({"error": "Invalid test action"}), 400
 
 	pet = current_user.pet
@@ -450,6 +467,9 @@ def pet_test_action():
 	elif test_action == "reduce-cleanliness":
 		pet.cleanliness = max(0, pet.cleanliness - 10)
 		pet.cleanliness = round(pet.cleanliness, 1)
+	elif test_action == "reduce-joy":
+		pet.happiness = max(0, pet.happiness - 10)
+		pet.happiness = round(pet.happiness, 1)
 
 	db.session.commit()
 
