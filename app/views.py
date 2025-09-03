@@ -445,6 +445,74 @@ def shop_purchase():
 	})
 
 
+@bp.route("/api/minigame/higher-lower", methods=["POST"])
+@login_required
+def minigame_higher_lower():
+	if not current_user.pet:
+		return jsonify({"error": "No pet found"}), 404
+	
+	if not current_user.inventory:
+		return jsonify({"error": "No inventory found"}), 404
+	
+	# Check if pet is sleeping
+	if current_user.pet.is_sleeping:
+		return jsonify({"error": "Cannot play minigames while pet is sleeping"}), 400
+	
+	# Check joy requirement (minimum 40)
+	if current_user.pet.happiness < 40:
+		return jsonify({"error": "Joy too low! Need at least 40% to play minigames"}), 400
+	
+	# Get user's guess
+	guess = request.json.get("guess")
+	if not guess or guess not in ["higher", "lower"]:
+		return jsonify({"error": "Invalid guess. Must be 'higher' or 'lower'"}), 400
+	
+	# Generate random number between 0-20, excluding 10
+	import random
+	possible_numbers = list(range(0, 10)) + list(range(11, 21))
+	rolled_number = random.choice(possible_numbers)
+	
+	# Determine if guess is correct
+	base_number = 10
+	is_correct = False
+	
+	if guess == "higher" and rolled_number > base_number:
+		is_correct = True
+	elif guess == "lower" and rolled_number < base_number:
+		is_correct = True
+	
+	# Apply consequences
+	if is_correct:
+		# Grant 2 coins
+		current_user.inventory.add_coins(2)
+		reward_message = f"Correct! You earned 2 coins! 🪙"
+	else:
+		# Reduce joy by 2 points
+		old_happiness = current_user.pet.happiness
+		current_user.pet.happiness = max(0, current_user.pet.happiness - 2)
+		current_user.pet.happiness = round(current_user.pet.happiness, 1)
+		reward_message = f"Wrong! Pet lost 2 joy points 😢"
+	
+	# Commit changes
+	db.session.commit()
+	
+	print(f"MINIGAME: {current_user.username} played Higher/Lower - Guess: {guess}, Rolled: {rolled_number}, Correct: {is_correct}")
+	
+	return jsonify({
+		"success": True,
+		"game": "higher_lower",
+		"guess": guess,
+		"rolled_number": rolled_number,
+		"base_number": base_number,
+		"is_correct": is_correct,
+		"reward_message": reward_message,
+		"stats": {
+			"happiness": current_user.pet.happiness,
+			"coins": current_user.inventory.coins
+		}
+	})
+
+
 @bp.route("/api/pet/test-action", methods=["POST"])
 @login_required
 def pet_test_action():

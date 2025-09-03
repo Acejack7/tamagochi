@@ -1432,4 +1432,288 @@ main {
 	}
 }
 
+.notification .notification-close:hover {
+	color: #666;
+}
+
+/* Minigame Styles */
+.minigame-btn {
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	color: white;
+	border: none;
+	border-radius: 8px;
+	padding: 12px 16px;
+	font-size: 14px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.minigame-btn:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.minigame-btn:disabled {
+	background: #ccc;
+	cursor: not-allowed;
+	transform: none;
+	box-shadow: none;
+}
+
+.minigame-modal {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: rgba(0, 0, 0, 0.5);
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	z-index: 1000;
+}
+
+.minigame-content {
+	background: white;
+	border-radius: 12px;
+	padding: 24px;
+	max-width: 500px;
+	width: 90%;
+	max-height: 80vh;
+	overflow-y: auto;
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.minigame-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 20px;
+	border-bottom: 2px solid #f0f0f0;
+	padding-bottom: 16px;
+}
+
+.minigame-header h3 {
+	margin: 0;
+	color: #333;
+	font-size: 24px;
+}
+
+.minigame-list {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.minigame-item {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	padding: 20px;
+	background: #f8f9fa;
+	border-radius: 8px;
+	border: 1px solid #e9ecef;
+	transition: all 0.3s ease;
+}
+
+.minigame-item:hover {
+	background: #e9ecef;
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.minigame-icon {
+	font-size: 32px;
+	width: 60px;
+	text-align: center;
+}
+
+.minigame-info {
+	flex: 1;
+}
+
+.minigame-name {
+	font-size: 18px;
+	font-weight: 600;
+	color: #333;
+	margin-bottom: 4px;
+}
+
+.minigame-description {
+	color: #666;
+	margin-bottom: 4px;
+}
+
+.minigame-requirement {
+	font-size: 12px;
+	color: #888;
+	font-style: italic;
+}
+
+.play-minigame-btn {
+	background: #28a745;
+	color: white;
+	border: none;
+	border-radius: 6px;
+	padding: 10px 16px;
+	font-size: 14px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.3s ease;
+}
+
+.play-minigame-btn:hover {
+	background: #218838;
+	transform: translateY(-1px);
+}
+
+.play-minigame-btn:disabled {
+	background: #ccc;
+	cursor: not-allowed;
+	transform: none;
+}
+
+/* Minigame Interface Styles */
+.minigame-interface {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: rgba(0, 0, 0, 0.5);
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	z-index: 1001;
+}
+
+.minigame-interface .game-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 24px;
+	border-bottom: 2px solid #f0f0f0;
+	padding-bottom: 16px;
+}
+
+.minigame-interface .game-header h3 {
+	margin: 0;
+	color: #333;
+	font-size: 28px;
+}
+
+.game-area {
+	text-align: center;
+	padding: 20px;
+}
+
+.base-number {
+	font-size: 24px;
+	font-weight: 600;
+	color: #333;
+	margin-bottom: 20px;
+	padding: 16px;
+	background: #f8f9fa;
+	border-radius: 8px;
+	border: 2px solid #dee2e6;
+}
+
+.game-instruction {
+	font-size: 16px;
+	color: #666;
+	margin-bottom: 30px;
+	line-height: 1.5;
+}
+
+.guess-buttons {
+	display: flex;
+	gap: 20px;
+	justify-content: center;
+	margin-bottom: 30px;
+}
+
+.guess-btn {
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	color: white;
+	border: none;
+	border-radius: 8px;
+	padding: 16px 32px;
+	font-size: 18px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.guess-btn:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+.game-result {
+	margin-top: 30px;
+	padding: 24px;
+	background: #f8f9fa;
+	border-radius: 12px;
+	border: 2px solid #dee2e6;
+}
+
+.result-number {
+	font-size: 48px;
+	font-weight: bold;
+	color: #333;
+	margin-bottom: 16px;
+}
+
+.result-message {
+	font-size: 20px;
+	color: #333;
+	margin-bottom: 16px;
+	font-weight: 600;
+}
+
+.result-reward {
+	font-size: 16px;
+	color: #666;
+	margin-bottom: 24px;
+}
+
+.play-again-btn {
+	background: #28a745;
+	color: white;
+	border: none;
+	border-radius: 8px;
+	padding: 12px 24px;
+	font-size: 16px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.3s ease;
+}
+
+.play-again-btn:hover {
+	background: #218838;
+	transform: translateY(-1px);
+}
+
+/* Success and Error states */
+.result-message.success {
+	color: #28a745;
+}
+
+.result-message.error {
+	color: #dc3545;
+}
+
+.result-reward.coins {
+	color: #ffc107;
+	font-weight: 600;
+}
+
+.result-reward.joy-loss {
+	color: #dc3545;
+	font-weight: 600;
+}
+
 

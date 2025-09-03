@@ -23,6 +23,7 @@ let foodDisplayTimer = null; // For timing food display
 let sleepTimer = null;
 let sleepEndTime = null;
 let isSleeping = false;
+window.isSleeping = isSleeping;
 let autoUpdateTimer = null;
 
 // Test function to force sleep visibility
@@ -32,7 +33,8 @@ function testSleep() {
 	const endTime = new Date(now.getTime() + 60000); // 1 minute from now
 	
 	// Force the sleeping state
-	isSleeping = false; // Reset first
+	isSleeping = false;
+	window.isSleeping = isSleeping; // Reset first
 	console.log('🔧 Force calling showSleepOverlay...');
 	showSleepOverlay('nap', endTime.toISOString());
 	
@@ -1164,6 +1166,11 @@ function updateStatsDisplay(stats) {
 	// Update button states based on stats
 	updateButtonStates(stats);
 	
+	// Update minigame button state
+	if (window.updateMinigameButtonFromStats) {
+		window.updateMinigameButtonFromStats(stats);
+	}
+	
 	// Check for auto-sleep when energy reaches 0 (but only if not already sleeping)
 	if (stats.energy <= 0 && !isSleeping) {
 		console.log('Energy reached 0, triggering auto-sleep');
@@ -1243,6 +1250,25 @@ function updateButtonStates(stats) {
 			}
 		}
 	});
+	
+	// Update minigame button state based on joy requirement
+	const minigameBtn = document.getElementById('minigame-btn');
+	if (minigameBtn && stats.happiness !== undefined) {
+		const joyValue = stats.happiness;
+		if (joyValue < 40) {
+			minigameBtn.disabled = true;
+			minigameBtn.style.opacity = '0.5';
+			minigameBtn.style.cursor = 'not-allowed';
+			minigameBtn.title = `Joy too low! Need at least 40% (current: ${joyValue}%)`;
+			console.log(`Disabled minigame button - Joy is ${joyValue}% (min: 40%)`);
+		} else {
+			minigameBtn.disabled = false;
+			minigameBtn.style.opacity = '1';
+			minigameBtn.style.cursor = 'pointer';
+			minigameBtn.title = 'Play minigames with your pet!';
+			console.log(`Enabled minigame button - Joy is ${joyValue}% (min: 40%)`);
+		}
+	}
 }
 
 function updatePetAppearance(stats) {
@@ -1394,6 +1420,7 @@ function showSleepOverlay(sleepType, endTime, startTime = null) {
 	console.log(`📍 Called from:`, new Error().stack.split('\n')[2]);
 	
 	isSleeping = true;
+	window.isSleeping = isSleeping;
 	
 	// Always work in UTC to match backend
 	// Backend sends UTC times, so we need to compare with UTC
@@ -1477,6 +1504,7 @@ function hideSleepOverlay() {
 	console.log('🌅 HIDING SLEEP OVERLAY - called from:', new Error().stack.split('\n')[2]);
 	
 	isSleeping = false;
+	window.isSleeping = isSleeping;
 	sleepEndTime = null;
 	
 	// Hide simple progress bar
@@ -1577,6 +1605,7 @@ function updateSleepProgress() {
 let washTimer = null;
 let washEndTime = null;
 let isWashing = false;
+window.isWashing = isWashing;
 
 function showWashOverlay(washType, endTime, startTime = null) {
 	console.log(`🚿 SHOWING WASH OVERLAY: ${washType} until ${endTime}`);
@@ -1584,6 +1613,7 @@ function showWashOverlay(washType, endTime, startTime = null) {
 	console.log(`📍 Called from:`, new Error().stack.split('\n')[2]);
 	
 	isWashing = true;
+	window.isWashing = isWashing;
 	
 	// Always work in UTC to match backend
 	// Backend sends UTC times, so we need to compare with UTC
@@ -1655,6 +1685,7 @@ function hideWashOverlay() {
 	console.log('🚿 HIDING WASH OVERLAY');
 	
 	isWashing = false;
+	window.isWashing = isWashing;
 	washEndTime = null;
 	
 	// Hide main wash overlay
@@ -1819,6 +1850,7 @@ function updatePlayButtonStates() {
 function disableAllActions(disabled) {
 	const actionButtons = document.querySelectorAll('.action-btn');
 	const shopButton = document.getElementById('shop-btn');
+	const minigameButton = document.getElementById('minigame-btn');
 	const testButtons = document.querySelectorAll('.test-btn');
 
 	actionButtons.forEach(button => {
@@ -1842,6 +1874,19 @@ function disableAllActions(disabled) {
 				shopButton.title = 'Cannot shop while pet is sleeping';
 			} else if (isWashing) {
 				shopButton.title = 'Cannot shop while pet is washing';
+			}
+		}
+	}
+	
+	// Disable minigame button during sleep or washing
+	if (minigameButton) {
+		minigameButton.disabled = disabled;
+		minigameButton.style.opacity = disabled ? '0.5' : '1';
+		if (disabled) {
+			if (isSleeping) {
+				minigameButton.title = 'Cannot play minigames while pet is sleeping';
+			} else if (isWashing) {
+				minigameButton.title = 'Cannot play minigames while pet is washing';
 			}
 		}
 	}
@@ -2114,6 +2159,183 @@ function initializeStatBars() {
 		fill.style.width = `${value}%`;
 	});
 }
+
+// Minigame functionality
+document.addEventListener('DOMContentLoaded', function() {
+	// Minigame button functionality
+	const minigameBtn = document.getElementById('minigame-btn');
+	const minigameModal = document.getElementById('minigame-modal');
+	const closeMinigameBtn = document.getElementById('close-minigame');
+	const higherLowerGame = document.getElementById('higher-lower-game');
+	const closeHigherLowerBtn = document.getElementById('close-higher-lower');
+	
+	// Check joy requirement and update button state
+	function updateMinigameButtonState() {
+		const joyValue = parseInt(minigameBtn.dataset.joy) || 0;
+		if (joyValue < 40) {
+			minigameBtn.disabled = true;
+			minigameBtn.title = `Joy too low! Need at least 40% (current: ${joyValue}%)`;
+		} else {
+			minigameBtn.disabled = false;
+			minigameBtn.title = 'Play minigames with your pet!';
+		}
+	}
+	
+	// Update button state on page load
+	updateMinigameButtonState();
+	
+	// Update button state when stats change
+	function updateMinigameButtonFromStats(stats) {
+		if (stats && stats.happiness !== undefined) {
+			minigameBtn.dataset.joy = stats.happiness;
+			updateMinigameButtonState();
+		}
+	}
+	
+	// Open minigame modal
+	minigameBtn.addEventListener('click', function() {
+		if (!minigameBtn.disabled) {
+			// Additional check for sleep/wash state
+			if (window.isSleeping || window.isWashing) {
+				showActionFeedback('Cannot play minigames while pet is sleeping or washing', false);
+				return;
+			}
+			minigameModal.style.display = 'flex';
+		}
+	});
+	
+	// Close minigame modal
+	closeMinigameBtn.addEventListener('click', function() {
+		minigameModal.style.display = 'none';
+	});
+	
+	// Close modal when clicking outside
+	minigameModal.addEventListener('click', function(e) {
+		if (e.target === minigameModal) {
+			minigameModal.style.display = 'none';
+		}
+	});
+	
+	// Play minigame buttons
+	document.querySelectorAll('.play-minigame-btn').forEach(btn => {
+		btn.addEventListener('click', function() {
+			const gameType = this.dataset.game;
+			if (gameType === 'higher_lower') {
+				startHigherLowerGame();
+			}
+		});
+	});
+	
+	// Start Higher or Lower game
+	function startHigherLowerGame() {
+		minigameModal.style.display = 'none';
+		higherLowerGame.style.display = 'flex';
+		
+		// Reset game state
+		document.getElementById('game-result').style.display = 'none';
+		document.querySelectorAll('.guess-btn').forEach(btn => btn.disabled = false);
+	}
+	
+	// Close Higher or Lower game
+	closeHigherLowerBtn.addEventListener('click', function() {
+		higherLowerGame.style.display = 'none';
+	});
+	
+	// Close game when clicking outside
+	higherLowerGame.addEventListener('click', function(e) {
+		if (e.target === higherLowerGame) {
+			higherLowerGame.style.display = 'none';
+		}
+	});
+	
+	// Guess buttons
+	document.querySelectorAll('.guess-btn').forEach(btn => {
+		btn.addEventListener('click', function() {
+			const guess = this.dataset.guess;
+			playHigherLowerGame(guess);
+		});
+	});
+	
+	// Play the game
+	function playHigherLowerGame(guess) {
+		// Disable buttons during game
+		document.querySelectorAll('.guess-btn').forEach(btn => btn.disabled = true);
+		
+		// Show loading state
+		const resultDiv = document.getElementById('game-result');
+		resultDiv.style.display = 'block';
+		document.getElementById('result-number').textContent = '🎲 Rolling...';
+		document.getElementById('result-message').textContent = 'Tamagochi is thinking...';
+		document.getElementById('result-reward').textContent = '';
+		
+		// Make API call
+		fetch('/api/minigame/higher-lower', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({ guess: guess })
+		})
+		.then(response => response.json())
+		.then(data => {
+			if (data.success) {
+				// Show result
+				document.getElementById('result-number').textContent = data.rolled_number;
+				document.getElementById('result-message').textContent = data.reward_message;
+				document.getElementById('result-message').className = 'result-message ' + (data.is_correct ? 'success' : 'error');
+				
+				if (data.is_correct) {
+					document.getElementById('result-reward').textContent = `+2 coins earned! Total: ${data.stats.coins} coins`;
+					document.getElementById('result-reward').className = 'result-reward coins';
+				} else {
+					document.getElementById('result-reward').textContent = `Joy decreased to ${data.stats.happiness}%`;
+					document.getElementById('result-reward').className = 'result-reward joy-loss';
+				}
+				
+				// Update global stats
+				updateMinigameButtonFromStats(data.stats);
+				
+				// Update inventory display if shop is open
+				if (window.currentInventory) {
+					window.currentInventory.coins = data.stats.coins;
+					updateInventoryDisplay();
+				}
+			} else {
+				// Show error
+				document.getElementById('result-number').textContent = '❌';
+				document.getElementById('result-message').textContent = data.error;
+				document.getElementById('result-message').className = 'result-message error';
+				document.getElementById('result-reward').textContent = '';
+			}
+		})
+		.catch(error => {
+			console.error('Error playing minigame:', error);
+			document.getElementById('result-number').textContent = '❌';
+			document.getElementById('result-message').textContent = 'An error occurred while playing the game.';
+			document.getElementById('result-message').className = 'result-message error';
+			document.getElementById('result-reward').textContent = '';
+		});
+	}
+	
+	// Play again button
+	document.getElementById('play-again-btn').addEventListener('click', function() {
+		// Reset game state
+		document.getElementById('game-result').style.display = 'none';
+		document.querySelectorAll('.guess-btn').forEach(btn => btn.disabled = false);
+	});
+	
+	// Update inventory display function (if it exists)
+	function updateInventoryDisplay() {
+		// Update shop coins display
+		const shopCoins = document.getElementById('shop-coins');
+		if (shopCoins && window.currentInventory) {
+			shopCoins.textContent = window.currentInventory.coins;
+		}
+	}
+	
+	// Make updateMinigameButtonFromStats available globally
+	window.updateMinigameButtonFromStats = updateMinigameButtonFromStats;
+});
 
 window.addEventListener('load', () => {
 	initializeStatBars();
