@@ -407,6 +407,28 @@ function setupActionButtons() {
 			handleTestAction(testType);
 		});
 	});
+	
+	// Global menu closing functionality
+	document.addEventListener('click', function(e) {
+		// Check if click is outside any menu
+		const menus = ['food-menu', 'sleep-menu', 'wash-menu', 'play-menu'];
+		const clickedMenu = menus.find(menuId => {
+			const menu = document.getElementById(menuId);
+			return menu && menu.contains(e.target);
+		});
+		
+		// If click is outside all menus and not on action buttons, close all menus
+		if (!clickedMenu && !e.target.closest('.action-btn')) {
+			hideAllMenus();
+		}
+	});
+	
+	// Close all menus on escape key
+	document.addEventListener('keydown', function(e) {
+		if (e.key === 'Escape') {
+			hideAllMenus();
+		}
+	});
 }
 
 async function handleAction(action) {
@@ -671,7 +693,15 @@ async function handleSleepAction(sleepType) {
 	}
 }
 
+function hideAllMenus() {
+	hideFoodMenu();
+	hideSleepMenu();
+	hideWashMenu();
+	hidePlayMenu();
+}
+
 function showFoodMenu() {
+	hideAllMenus();
 	const foodMenu = document.getElementById('food-menu');
 	if (foodMenu) {
 		// Update food button states before showing menu
@@ -688,6 +718,7 @@ function hideFoodMenu() {
 }
 
 function showSleepMenu() {
+	hideAllMenus();
 	const sleepMenu = document.getElementById('sleep-menu');
 	if (sleepMenu) {
 		sleepMenu.style.display = 'block';
@@ -702,6 +733,7 @@ function hideSleepMenu() {
 }
 
 function showWashMenu() {
+	hideAllMenus();
 	const washMenu = document.getElementById('wash-menu');
 	if (washMenu) {
 		washMenu.style.display = 'block';
@@ -716,6 +748,7 @@ function hideWashMenu() {
 }
 
 function showPlayMenu() {
+	hideAllMenus();
 	// Update play button states before showing menu
 	updatePlayButtonStates();
 	
