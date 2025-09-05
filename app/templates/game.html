@@ -16,38 +16,8 @@
 	</header>
 
 	<main class="game-main">
-		<div class="pet-stats">
-			<div class="stat-bar">
-				<label>Hunger</label>
-				<div class="bar">
-					<div class="fill hunger-fill" data-value="{{ pet.hunger|default(50) }}"></div>
-				</div>
-				<span>{{ pet.hunger|default(50) }}%</span>
-			</div>
-			<div class="stat-bar">
-				<label>Joy</label>
-				<div class="bar">
-					<div class="fill happiness-fill" data-value="{{ pet.happiness|default(50) }}"></div>
-				</div>
-				<span>{{ pet.happiness|default(50) }}%</span>
-			</div>
-			<div class="stat-bar">
-				<label>Cleanliness</label>
-				<div class="bar">
-					<div class="fill cleanliness-fill" data-value="{{ pet.cleanliness|default(50) }}"></div>
-				</div>
-				<span>{{ pet.cleanliness|default(50) }}%</span>
-			</div>
-			<div class="stat-bar">
-				<label>Energy</label>
-				<div class="bar">
-					<div class="fill energy-fill" data-value="{{ pet.energy|default(50) }}"></div>
-				</div>
-				<span>{{ pet.energy|default(50) }}%</span>
-			</div>
-		</div>
-
-		<div class="game-area">
+		<div class="game-layout">
+			<div class="game-area">
 			<div id="game-container"></div>
 			
 			<!-- Simple sleep progress bar overlay (always on top) -->
@@ -102,18 +72,6 @@
 				</div>
 			</div>
 			
-			<div class="action-buttons">
-				<button class="action-btn" data-action="feed">Feed</button>
-				<button class="action-btn" data-action="play">Play</button>
-				<button class="action-btn" data-action="wash">Wash</button>
-				<button class="action-btn" data-action="sleep">Take rest</button>
-			</div>
-			
-			<div class="utility-buttons">
-				<button class="storage-btn" id="storage-btn">📦 Storage</button>
-				<button class="shop-btn" id="shop-btn">🛍️ Shop</button>
-				<button class="minigame-btn" id="minigame-btn" data-joy="{{ pet.happiness|default(50) }}">🎮 Minigames</button>
-			</div>
 			
 			<!-- Minigame modal -->
 			<div id="minigame-modal" class="minigame-modal" style="display: none;">
@@ -380,13 +338,58 @@
 				</div>
 			</div>
 
-			<!-- Test buttons for faster testing -->
-			<div class="test-buttons">
-				<button class="test-btn" data-test="reduce-hunger">Reduce Hunger (-10)</button>
-				<button class="test-btn" data-test="reduce-energy">Reduce Energy (-10)</button>
-				<button class="test-btn" data-test="reduce-cleanliness">Reduce Cleanliness (-10)</button>
-				<button class="test-btn" data-test="reduce-joy">Reduce Joy (-10)</button>
-				<button class="test-btn" onclick="testSleep(); event.stopPropagation();">🧪 TEST SLEEP</button>
+			</div>
+			
+			<div class="game-sidebar">
+				<div class="pet-stats">
+					<div class="stat-bar">
+						<label>Hunger</label>
+						<div class="bar">
+							<div class="fill hunger-fill" data-value="{{ pet.hunger|default(50) }}"></div>
+						</div>
+						<span>{{ pet.hunger|default(50) }}%</span>
+					</div>
+					<div class="stat-bar">
+						<label>Joy</label>
+						<div class="bar">
+							<div class="fill happiness-fill" data-value="{{ pet.happiness|default(50) }}"></div>
+						</div>
+						<span>{{ pet.happiness|default(50) }}%</span>
+					</div>
+					<div class="stat-bar">
+						<label>Cleanliness</label>
+						<div class="bar">
+							<div class="fill cleanliness-fill" data-value="{{ pet.cleanliness|default(50) }}"></div>
+						</div>
+						<span>{{ pet.cleanliness|default(50) }}%</span>
+					</div>
+					<div class="stat-bar">
+						<label>Energy</label>
+						<div class="bar">
+							<div class="fill energy-fill" data-value="{{ pet.energy|default(50) }}"></div>
+						</div>
+						<span>{{ pet.energy|default(50) }}%</span>
+					</div>
+				</div>
+				
+				<div class="action-buttons">
+					<button class="action-btn" data-action="feed">Feed</button>
+					<button class="action-btn" data-action="play">Play</button>
+					<button class="action-btn" data-action="wash">Wash</button>
+					<button class="action-btn" data-action="sleep">Take rest</button>
+					<button class="storage-btn" id="storage-btn">📦 Storage</button>
+					<button class="shop-btn" id="shop-btn">🛍️ Shop</button>
+					<button class="minigame-btn" id="minigame-btn" data-joy="{{ pet.happiness|default(50) }}">🎮 Minigames</button>
+				</div>
+				
+				<!-- Test buttons for faster testing -->
+				<div class="test-buttons">
+					<button class="test-btn" data-test="reduce-hunger">Reduce Hunger (-10)</button>
+					<button class="test-btn" data-test="reduce-energy">Reduce Energy (-10)</button>
+					<button class="test-btn" data-test="reduce-cleanliness">Reduce Cleanliness (-10)</button>
+					<button class="test-btn" data-test="reduce-joy">Reduce Joy (-10)</button>
+					<button class="test-btn" onclick="testSleep(); event.stopPropagation();">🧪 TEST SLEEP</button>
+				</div>
 			</div>
 		</div>
 	</main>
