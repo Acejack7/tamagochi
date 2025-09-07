@@ -1681,21 +1681,20 @@ bd.notification .notification-close:hover {
 	transform: none;
 }
 
-/* Minigame Interface Styles */
-.minigame-interface {
-	position: fixed;
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
-	background: rgba(0, 0, 0, 0.5);
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	z-index: 1001;
+/* Minigame Game Content (for individual games) */
+.minigame-game-content {
+	background: white;
+	border-radius: 16px;
+	padding: 32px;
+	max-width: 600px;
+	width: 90vw;
+	max-height: 80vh;
+	overflow-y: auto;
+	box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+	animation: modalSlideIn 0.3s ease-out;
 }
 
-.minigame-interface .game-header {
+.minigame-game-content .game-header {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
@@ -1704,15 +1703,26 @@ bd.notification .notification-close:hover {
 	padding-bottom: 16px;
 }
 
-.minigame-interface .game-header h3 {
+.minigame-game-content .game-header h3 {
 	margin: 0;
 	color: #333;
 	font-size: 28px;
 }
 
-.game-area {
+.minigame-game-content .close-btn {
+	color: #666;
+	background: #f8f9fa;
+	border: 1px solid #dee2e6;
+}
+
+.minigame-game-content .close-btn:hover {
+	color: #333;
+	background: #e9ecef;
+}
+
+.minigame-game-content .game-area {
 	text-align: center;
-	padding: 20px;
+	padding: 0;
 }
 
 .base-number {
@@ -1738,6 +1748,7 @@ bd.notification .notification-close:hover {
 	gap: 20px;
 	justify-content: center;
 	margin-bottom: 30px;
+	flex-wrap: wrap;
 }
 
 .guess-btn {
@@ -1751,6 +1762,7 @@ bd.notification .notification-close:hover {
 	cursor: pointer;
 	transition: all 0.3s ease;
 	box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+	min-width: 120px;
 }
 
 .guess-btn:hover {

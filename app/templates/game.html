@@ -95,23 +95,25 @@
 			</div>
 			
 			<!-- Higher or Lower Game Interface -->
-			<div id="higher-lower-game" class="minigame-interface" style="display: none;">
-				<div class="game-header">
-					<h3>🎲 Higher or Lower</h3>
-					<button class="close-game-btn" id="close-higher-lower">&times;</button>
-				</div>
-				<div class="game-area">
-					<div class="base-number">Base Number: <span id="base-number">10</span></div>
-					<div class="game-instruction">Guess if Tamagochi's number will be higher or lower than 10!</div>
-					<div class="guess-buttons">
-						<button class="guess-btn" data-guess="lower">Lower</button>
-						<button class="guess-btn" data-guess="higher">Higher</button>
+			<div id="higher-lower-game" class="minigame-modal" style="display: none;">
+				<div class="minigame-game-content">
+					<div class="game-header">
+						<h3>🎲 Higher or Lower</h3>
+						<button class="close-btn" id="close-higher-lower">&times;</button>
 					</div>
-					<div class="game-result" id="game-result" style="display: none;">
-						<div class="result-number" id="result-number"></div>
-						<div class="result-message" id="result-message"></div>
-						<div class="result-reward" id="result-reward"></div>
-						<button class="play-again-btn" id="play-again-btn">Play Again</button>
+					<div class="game-area">
+						<div class="base-number">Base Number: <span id="base-number">10</span></div>
+						<div class="game-instruction">Guess if Tamagochi will roll a number higher or lower than 10!</div>
+						<div class="guess-buttons">
+							<button class="guess-btn" data-guess="lower">Lower</button>
+							<button class="guess-btn" data-guess="higher">Higher</button>
+						</div>
+						<div class="game-result" id="game-result" style="display: none;">
+							<div class="result-number" id="result-number"></div>
+							<div class="result-message" id="result-message"></div>
+							<div class="result-reward" id="result-reward"></div>
+							<button class="play-again-btn" id="play-again-btn">Play Again</button>
+						</div>
 					</div>
 				</div>
 			</div>
