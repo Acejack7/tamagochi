@@ -85,6 +85,413 @@ let currentInventory = {
 	mushroom: 0
 };
 
+// Menu Manager Class - Consolidates all menu logic
+class MenuManager {
+	constructor() {
+		this.menus = {
+			feed: {
+				id: 'food-menu',
+				cancelId: 'cancel-food',
+				buttonClass: '.food-btn',
+				dataAttr: 'food'
+			},
+			sleep: {
+				id: 'sleep-menu',
+				cancelId: 'cancel-sleep',
+				buttonClass: '.sleep-btn',
+				dataAttr: 'sleep'
+			},
+			wash: {
+				id: 'wash-menu',
+				cancelId: 'cancel-wash',
+				buttonClass: '.wash-btn',
+				dataAttr: 'wash'
+			},
+			play: {
+				id: 'play-menu',
+				cancelId: 'cancel-play',
+				buttonClass: '.play-btn',
+				dataAttr: 'play'
+			}
+		};
+		this.activeMenu = null;
+	}
+
+	showMenu(menuType) {
+		// Hide all other menus first
+		this.hideAllMenus();
+		
+		const menuConfig = this.menus[menuType];
+		if (!menuConfig) return;
+
+		const menuElement = document.getElementById(menuConfig.id);
+		if (menuElement) {
+			// Update button states if needed
+			if (menuType === 'feed') {
+				updateFoodButtonStates();
+			} else if (menuType === 'play') {
+				updatePlayButtonStates();
+			}
+			
+			menuElement.style.display = 'block';
+			this.activeMenu = menuType;
+		}
+	}
+
+	hideMenu(menuType) {
+		const menuConfig = this.menus[menuType];
+		if (!menuConfig) return;
+
+		const menuElement = document.getElementById(menuConfig.id);
+		if (menuElement) {
+			menuElement.style.display = 'none';
+			if (this.activeMenu === menuType) {
+				this.activeMenu = null;
+			}
+		}
+	}
+
+	hideAllMenus() {
+		Object.keys(this.menus).forEach(menuType => {
+			this.hideMenu(menuType);
+		});
+		this.activeMenu = null;
+	}
+
+	setupMenuButtons() {
+		Object.entries(this.menus).forEach(([menuType, config]) => {
+			// Setup menu item buttons
+			const menuButtons = document.querySelectorAll(config.buttonClass);
+			menuButtons.forEach(button => {
+				button.addEventListener('click', () => {
+					const actionData = button.dataset[config.dataAttr];
+					// Use unified action handler
+					handleUnifiedAction(menuType, actionData);
+				});
+			});
+
+			// Setup cancel button
+			const cancelButton = document.getElementById(config.cancelId);
+			if (cancelButton) {
+				cancelButton.addEventListener('click', () => {
+					this.hideMenu(menuType);
+				});
+			}
+		});
+	}
+
+	isMenuOpen() {
+		return this.activeMenu !== null;
+	}
+
+	getActiveMenu() {
+		return this.activeMenu;
+	}
+}
+
+// Initialize menu manager
+const menuManager = new MenuManager();
+
+// Pet State Manager - Consolidates timer and overlay management
+class PetStateManager {
+	constructor() {
+		this.timers = new Map();
+		this.overlays = new Map();
+		this.states = {
+			sleeping: false,
+			washing: false
+		};
+	}
+
+	// Timer management
+	setTimer(name, callback, duration) {
+		this.clearTimer(name);
+		this.timers.set(name, setTimeout(callback, duration));
+	}
+
+	setInterval(name, callback, duration) {
+		this.clearTimer(name);
+		this.timers.set(name, setInterval(callback, duration));
+	}
+
+	clearTimer(name) {
+		const timer = this.timers.get(name);
+		if (timer) {
+			clearTimeout(timer);
+			clearInterval(timer);
+			this.timers.delete(name);
+		}
+	}
+
+	clearAllTimers() {
+		this.timers.forEach((timer, name) => {
+			clearTimeout(timer);
+			clearInterval(timer);
+		});
+		this.timers.clear();
+	}
+
+	// Overlay management
+	showOverlay(type, element) {
+		this.hideOverlay(type);
+		if (element) {
+			element.style.display = 'flex';
+			this.overlays.set(type, element);
+		}
+	}
+
+	hideOverlay(type) {
+		const overlay = this.overlays.get(type);
+		if (overlay) {
+			overlay.style.display = 'none';
+			this.overlays.delete(type);
+		}
+	}
+
+	hideAllOverlays() {
+		this.overlays.forEach((overlay, type) => {
+			overlay.style.display = 'none';
+		});
+		this.overlays.clear();
+	}
+
+	// State management
+	setState(stateName, value) {
+		this.states[stateName] = value;
+		if (typeof window !== 'undefined') {
+			window[`is${stateName.charAt(0).toUpperCase() + stateName.slice(1)}`] = value;
+		}
+	}
+
+	getState(stateName) {
+		return this.states[stateName];
+	}
+}
+
+// Initialize state manager
+const stateManager = new PetStateManager();
+
+// DOM Cache - Improve performance by caching frequently used elements
+class DOMCache {
+	constructor() {
+		this.cache = new Map();
+		this.initialized = false;
+	}
+
+	init() {
+		if (this.initialized) return;
+		
+		// Cache frequently used elements
+		this.cache.set('actionButtons', document.querySelectorAll('.action-btn'));
+		this.cache.set('statBars', document.querySelectorAll('.stat-bar'));
+		this.cache.set('gameContainer', document.getElementById('game-container'));
+		this.cache.set('storageModal', document.getElementById('storage-modal'));
+		this.cache.set('shopModal', document.getElementById('shop-modal'));
+		this.cache.set('minigameModal', document.getElementById('minigame-modal'));
+		this.cache.set('sleepOverlay', document.getElementById('sleep-overlay'));
+		this.cache.set('washOverlay', document.getElementById('wash-overlay'));
+		this.cache.set('simpleSleepBar', document.getElementById('simple-sleep-bar'));
+		
+		this.initialized = true;
+	}
+
+	get(key) {
+		if (!this.initialized) this.init();
+		return this.cache.get(key);
+	}
+
+	refresh(key) {
+		// Force refresh a cached element
+		if (key === 'statBars') {
+			this.cache.set('statBars', document.querySelectorAll('.stat-bar'));
+		} else if (key === 'actionButtons') {
+			this.cache.set('actionButtons', document.querySelectorAll('.action-btn'));
+		}
+		// Add more refresh logic as needed
+	}
+
+	getElementById(id) {
+		const key = `element-${id}`;
+		if (!this.cache.has(key)) {
+			this.cache.set(key, document.getElementById(id));
+		}
+		return this.cache.get(key);
+	}
+
+	querySelector(selector) {
+		const key = `selector-${selector}`;
+		if (!this.cache.has(key)) {
+			this.cache.set(key, document.querySelector(selector));
+		}
+		return this.cache.get(key);
+	}
+}
+
+// Initialize DOM cache
+const domCache = new DOMCache();
+
+// Action configuration for unified handling
+const ACTION_CONFIG = {
+	feed: {
+		endpoint: '/api/pet/action',
+		method: 'POST',
+		statThreshold: { stat: 'hunger', max: 80 },
+		buttonSelector: '[data-action="feed"]',
+		requiresType: true,
+		typeField: 'food_type',
+		imageFunction: 'showFoodImage',
+		feedbackPrefix: 'Fed'
+	},
+	sleep: {
+		endpoint: '/api/pet/action',
+		method: 'POST',
+		statThreshold: { stat: 'energy', max: 50 }, // Will be checked dynamically
+		buttonSelector: '[data-action="sleep"]',
+		requiresType: true,
+		typeField: 'sleep_type',
+		imageFunction: 'showSleepImage',
+		feedbackPrefix: 'Sleep'
+	},
+	wash: {
+		endpoint: '/api/pet/action',
+		method: 'POST',
+		statThreshold: { stat: 'cleanliness', max: 85 },
+		buttonSelector: '[data-action="wash"]',
+		requiresType: true,
+		typeField: 'wash_type',
+		imageFunction: 'showWashImage',
+		feedbackPrefix: 'Wash'
+	},
+	play: {
+		endpoint: '/api/pet/action',
+		method: 'POST',
+		statThreshold: { stat: 'happiness', max: 89 },
+		buttonSelector: '[data-action="play"]',
+		requiresType: true,
+		typeField: 'play_type',
+		imageFunction: 'showPlayImage',
+		feedbackPrefix: 'Play'
+	}
+};
+
+// Unified action handler
+async function handleUnifiedAction(actionType, actionSubType) {
+	const config = ACTION_CONFIG[actionType];
+	if (!config) {
+		console.error(`No configuration found for action: ${actionType}`);
+		return;
+	}
+
+	const button = document.querySelector(config.buttonSelector);
+	
+	// Check if button is already disabled
+	if (button && button.disabled) {
+		console.log(`Action ${actionType} is disabled`);
+		return;
+	}
+	
+	// Check stat thresholds
+	if (config.statThreshold) {
+		const currentStatValue = getCurrentStatValue(config.statThreshold.stat);
+		
+		// Special handling for sleep energy restrictions
+		if (actionType === 'sleep') {
+			const maxEnergy = actionSubType === 'nap' ? 50 : 30;
+			if (currentStatValue > maxEnergy) {
+				const actionName = actionSubType === 'nap' ? 'Nap' : 'Sleep';
+				showActionFeedback(actionName, false, `Energy is too high for ${actionSubType}`);
+				return;
+			}
+		} else if (currentStatValue > config.statThreshold.max) {
+			const statName = config.statThreshold.stat === 'happiness' ? 'Joy' : config.statThreshold.stat;
+			console.log(`Action ${actionType} blocked - ${statName} is ${currentStatValue}% (threshold: ${config.statThreshold.max}%)`);
+			updateButtonStates({ [config.statThreshold.stat]: currentStatValue });
+			return;
+		}
+	}
+	
+	// Disable button during action
+	if (button) {
+		button.disabled = true;
+		button.style.opacity = '0.6';
+	}
+	
+	try {
+		// Show action image if configured
+		if (config.imageFunction && window[config.imageFunction]) {
+			window[config.imageFunction](actionSubType);
+		}
+		
+		// Prepare request body
+		const requestBody = { action: actionType };
+		if (config.requiresType && actionSubType) {
+			requestBody[config.typeField] = actionSubType;
+		}
+		
+		// Send AJAX request
+		const response = await fetch(config.endpoint, {
+			method: config.method,
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify(requestBody)
+		});
+		
+		const data = await response.json();
+		
+		if (data.success) {
+			// Handle response based on action type
+			if (actionType === 'feed' && data.inventory) {
+				updateInventoryDisplay(data.inventory);
+			}
+			
+			// Handle sleep/wash overlay states
+			if (actionType === 'sleep' && data.is_sleeping && data.sleep_end_time) {
+				showSleepOverlay(data.sleep_type, data.sleep_end_time);
+			} else if (actionType === 'wash' && data.is_washing && data.wash_end_time) {
+				showWashOverlay(data.wash_type, data.wash_end_time);
+			}
+			
+			// Update stats
+			updateStatsDisplay(data.stats);
+			
+			// Show success feedback
+			const feedbackText = actionSubType ? 
+				`${config.feedbackPrefix} ${actionSubType}` : 
+				config.feedbackPrefix;
+			showActionFeedback(feedbackText, true);
+		} else {
+			showActionFeedback(config.feedbackPrefix, false, data.error);
+		}
+	} catch (error) {
+		console.error(`${actionType} action failed:`, error);
+		showActionFeedback(config.feedbackPrefix, false, 'Network error');
+	} finally {
+		// Re-enable button
+		if (button) {
+			button.disabled = false;
+			button.style.opacity = '1';
+		}
+	}
+}
+
+// Helper function to get current stat value from UI
+function getCurrentStatValue(statName) {
+	const statBars = domCache.get('statBars');
+	const displayStatName = statName === 'happiness' ? 'joy' : statName;
+	
+	for (const bar of statBars) {
+		const label = bar.querySelector('label');
+		if (label && label.textContent.toLowerCase() === displayStatName) {
+			const valueSpan = bar.querySelector('span');
+			if (valueSpan) {
+				return parseInt(valueSpan.textContent);
+			}
+		}
+	}
+	return null;
+}
+
 function preload() {
 	console.log('Preloading sprites...');
 	
@@ -269,99 +676,42 @@ async function loadCurrentStats() {
 }
 
 function setupActionButtons() {
-	const actionButtons = document.querySelectorAll('.action-btn');
+	const actionButtons = domCache.get('actionButtons');
 	
 	actionButtons.forEach(button => {
 		button.addEventListener('click', function() {
 			const action = this.dataset.action;
 			if (action === 'feed') {
-				showFoodMenu();
+				menuManager.showMenu('feed');
 			} else if (action === 'sleep') {
-				showSleepMenu();
+				menuManager.showMenu('sleep');
 			} else if (action === 'wash') {
-				showWashMenu();
+				menuManager.showMenu('wash');
 			} else if (action === 'play') {
-				showPlayMenu();
+				menuManager.showMenu('play');
 			} else {
 				handleAction(action);
 			}
 		});
 	});
 	
-	// Setup food menu buttons
-	const foodButtons = document.querySelectorAll('.food-btn');
-	foodButtons.forEach(button => {
-		button.addEventListener('click', function() {
-			const foodType = this.dataset.food;
-			handleFeedAction(foodType);
-		});
-	});
-	
-	// Setup cancel button
-	const cancelButton = document.getElementById('cancel-food');
-	if (cancelButton) {
-		cancelButton.addEventListener('click', hideFoodMenu);
-	}
-	
-	// Setup sleep menu buttons
-	const sleepButtons = document.querySelectorAll('.sleep-btn');
-	sleepButtons.forEach(button => {
-		button.addEventListener('click', function() {
-			const sleepType = this.dataset.sleep;
-			handleSleepAction(sleepType);
-		});
-	});
-	
-	// Setup cancel sleep button
-	const cancelSleepButton = document.getElementById('cancel-sleep');
-	if (cancelSleepButton) {
-		cancelSleepButton.addEventListener('click', hideSleepMenu);
-	}
-	
-	// Setup wash menu buttons
-	const washButtons = document.querySelectorAll('.wash-btn');
-	washButtons.forEach(button => {
-		button.addEventListener('click', function() {
-			const washType = this.dataset.wash;
-			handleWashAction(washType);
-		});
-	});
-	
-	// Setup cancel wash button
-	const cancelWashButton = document.getElementById('cancel-wash');
-	if (cancelWashButton) {
-		cancelWashButton.addEventListener('click', hideWashMenu);
-	}
-	
-	// Setup play menu buttons
-	const playButtons = document.querySelectorAll('.play-btn');
-	playButtons.forEach(button => {
-		button.addEventListener('click', function() {
-			const playType = this.dataset.play;
-			handlePlayAction(playType);
-		});
-	});
-	
-	// Setup cancel play button
-	const cancelPlayButton = document.getElementById('cancel-play');
-	if (cancelPlayButton) {
-		cancelPlayButton.addEventListener('click', hidePlayMenu);
-	}
+	// Setup all menu buttons using MenuManager
+	menuManager.setupMenuButtons();
 	
 	// Setup storage button
-	const storageButton = document.getElementById('storage-btn');
+	const storageButton = domCache.getElementById('storage-btn');
 	if (storageButton) {
 		storageButton.addEventListener('click', showStorageModal);
 	}
 
 	// Setup close storage button
-	const closeStorageButton = document.getElementById('close-storage');
+	const closeStorageButton = domCache.getElementById('close-storage');
 	if (closeStorageButton) {
 		closeStorageButton.addEventListener('click', hideStorageModal);
 	}
 
 	// Setup storage modal click outside to close
-	const storageModal = document.getElementById('storage-modal');
+	const storageModal = domCache.get('storageModal');
 	if (storageModal) {
 		storageModal.addEventListener('click', function(e) {
 			if (e.target === storageModal) {
@@ -371,19 +721,19 @@ function setupActionButtons() {
 	}
 
 	// Setup shop button
-	const shopButton = document.getElementById('shop-btn');
+	const shopButton = domCache.getElementById('shop-btn');
 	if (shopButton) {
 		shopButton.addEventListener('click', showShopModal);
 	}
 
 	// Setup close shop button
-	const closeShopButton = document.getElementById('close-shop');
+	const closeShopButton = domCache.getElementById('close-shop');
 	if (closeShopButton) {
 		closeShopButton.addEventListener('click', hideShopModal);
 	}
 
 	// Setup shop modal click outside to close
-	const shopModal = document.getElementById('shop-modal');
+	const shopModal = domCache.get('shopModal');
 	if (shopModal) {
 		shopModal.addEventListener('click', function(e) {
 			if (e.target === shopModal) {
@@ -411,22 +761,22 @@ function setupActionButtons() {
 	// Global menu closing functionality
 	document.addEventListener('click', function(e) {
 		// Check if click is outside any menu
-		const menus = ['food-menu', 'sleep-menu', 'wash-menu', 'play-menu'];
-		const clickedMenu = menus.find(menuId => {
+		const menuIds = Object.values(menuManager.menus).map(config => config.id);
+		const clickedMenu = menuIds.find(menuId => {
 			const menu = document.getElementById(menuId);
 			return menu && menu.contains(e.target);
 		});
 		
 		// If click is outside all menus and not on action buttons, close all menus
 		if (!clickedMenu && !e.target.closest('.action-btn')) {
-			hideAllMenus();
+			menuManager.hideAllMenus();
 		}
 	});
 	
 	// Close all menus on escape key
 	document.addEventListener('keydown', function(e) {
 		if (e.key === 'Escape') {
-			hideAllMenus();
+			menuManager.hideAllMenus();
 		}
 	});
 }
@@ -519,7 +869,7 @@ async function handleAction(action) {
 
 async function handleFeedAction(foodType) {
 	// Hide the food menu
-	hideFoodMenu();
+	menuManager.hideMenu('feed');
 	
 	// Get the feed button
 	const button = document.querySelector('[data-action="feed"]');
@@ -600,7 +950,7 @@ async function handleFeedAction(foodType) {
 
 async function handleSleepAction(sleepType) {
 	// Hide the sleep menu
-	hideSleepMenu();
+	menuManager.hideMenu('sleep');
 	
 	// Get the sleep button
 	const button = document.querySelector('[data-action="sleep"]');
@@ -693,81 +1043,16 @@ async function handleSleepAction(sleepType) {
 	}
 }
 
+// Legacy function - now uses MenuManager
 function hideAllMenus() {
-	hideFoodMenu();
-	hideSleepMenu();
-	hideWashMenu();
-	hidePlayMenu();
+	menuManager.hideAllMenus();
 }
 
-function showFoodMenu() {
-	hideAllMenus();
-	const foodMenu = document.getElementById('food-menu');
-	if (foodMenu) {
-		// Update food button states before showing menu
-		updateFoodButtonStates();
-		foodMenu.style.display = 'block';
-	}
-}
-
-function hideFoodMenu() {
-	const foodMenu = document.getElementById('food-menu');
-	if (foodMenu) {
-		foodMenu.style.display = 'none';
-	}
-}
-
-function showSleepMenu() {
-	hideAllMenus();
-	const sleepMenu = document.getElementById('sleep-menu');
-	if (sleepMenu) {
-		sleepMenu.style.display = 'block';
-	}
-}
-
-function hideSleepMenu() {
-	const sleepMenu = document.getElementById('sleep-menu');
-	if (sleepMenu) {
-		sleepMenu.style.display = 'none';
-	}
-}
-
-function showWashMenu() {
-	hideAllMenus();
-	const washMenu = document.getElementById('wash-menu');
-	if (washMenu) {
-		washMenu.style.display = 'block';
-	}
-}
-
-function hideWashMenu() {
-	const washMenu = document.getElementById('wash-menu');
-	if (washMenu) {
-		washMenu.style.display = 'none';
-	}
-}
-
-function showPlayMenu() {
-	hideAllMenus();
-	// Update play button states before showing menu
-	updatePlayButtonStates();
-	
-	const playMenu = document.getElementById('play-menu');
-	if (playMenu) {
-		playMenu.style.display = 'block';
-	}
-}
-
-function hidePlayMenu() {
-	const playMenu = document.getElementById('play-menu');
-	if (playMenu) {
-		playMenu.style.display = 'none';
-	}
-}
+// Individual menu functions removed - now handled by MenuManager class
 
 async function handleWashAction(washType) {
 	// Hide the wash menu
-	hideWashMenu();
+	menuManager.hideMenu('wash');
 	
 	// Get the wash button
 	const button = document.querySelector('[data-action="wash"]');
@@ -855,7 +1140,7 @@ async function handleWashAction(washType) {
 
 async function handlePlayAction(playType) {
 	// Hide the play menu
-	hidePlayMenu();
+	menuManager.hideMenu('play');
 	
 	// Get the play button
 	const button = document.querySelector('[data-action="play"]');
@@ -1166,7 +1451,7 @@ function updateStatsDisplay(stats) {
 		const statValue = stats[statName];
 		
 		// Find the stat bar by looking for the label text
-		const statBars = document.querySelectorAll('.stat-bar');
+		const statBars = domCache.get('statBars');
 		let targetBar = null;
 		
 		// Map "happiness" to "joy" for display purposes
