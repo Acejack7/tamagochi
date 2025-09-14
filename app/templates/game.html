@@ -119,75 +119,75 @@
 			</div>
 			
 			<!-- Food selection menu -->
-			<div id="food-menu" class="food-menu" style="display: none;">
+			<div id="food-menu" class="base-menu" style="display: none;">
 				<h3>Choose food:</h3>
-				<div class="food-options">
-					<button class="food-btn" data-food="mushroom">
+				<div class="food-options base-menu-options">
+					<button class="food-btn base-menu-btn" data-food="mushroom">
 						<img src="{{ url_for('static', filename='img/mushroom.png') }}" alt="Mushroom">
 						<span>Mushroom (+10) <span class="food-quantity" data-food-type="mushroom">({{ inventory.mushroom if inventory else 0 }})</span></span>
 					</button>
-					<button class="food-btn" data-food="blueberries">
+					<button class="food-btn base-menu-btn" data-food="blueberries">
 						<img src="{{ url_for('static', filename='img/blueberry.png') }}" alt="Blueberries">
 						<span>Blueberries (+15) <span class="food-quantity" data-food-type="blueberries">({{ inventory.blueberries if inventory else 0 }})</span></span>
 					</button>
-					<button class="food-btn" data-food="tree_seed">
+					<button class="food-btn base-menu-btn" data-food="tree_seed">
 						<img src="{{ url_for('static', filename='img/tree_seed.png') }}" alt="Tree Seed">
 						<span>Tree Seed (+5) <span class="food-quantity" data-food-type="tree_seed">({{ inventory.tree_seed if inventory else 0 }})</span></span>
 					</button>
 				</div>
-				<button id="cancel-food" class="cancel-btn">Cancel</button>
+				<button id="cancel-food" class="base-cancel-btn">Cancel</button>
 			</div>
 			
 			<!-- Sleep selection menu -->
-			<div id="sleep-menu" class="sleep-menu" style="display: none;">
+			<div id="sleep-menu" class="base-menu" style="display: none;">
 				<h3>Choose rest type:</h3>
-				<div class="sleep-options">
-					<button class="sleep-btn" data-sleep="nap">
+				<div class="sleep-options base-menu-options">
+					<button class="sleep-btn base-menu-btn" data-sleep="nap">
 						<img src="{{ url_for('static', filename='img/squirrel_sofa.png') }}" alt="Nap">
 						<span>Nap (+25)</span>
 					</button>
-					<button class="sleep-btn" data-sleep="sleep">
+					<button class="sleep-btn base-menu-btn" data-sleep="sleep">
 						<img src="{{ url_for('static', filename='img/squirrel_bed.png') }}" alt="Sleep">
 						<span>Sleep (100)</span>
 					</button>
 				</div>
-				<button id="cancel-sleep" class="cancel-btn">Cancel</button>
+				<button id="cancel-sleep" class="base-cancel-btn">Cancel</button>
 			</div>
 			
 			<!-- Wash selection menu -->
-			<div id="wash-menu" class="wash-menu" style="display: none;">
+			<div id="wash-menu" class="base-menu" style="display: none;">
 				<h3>Choose wash type:</h3>
-				<div class="wash-options">
-					<button class="wash-btn" data-wash="wash_hands">
+				<div class="wash-options base-menu-options">
+					<button class="wash-btn base-menu-btn" data-wash="wash_hands">
 						<img src="{{ url_for('static', filename='img/washbasin.png') }}" alt="Wash Hands">
 						<span>Wash Hands (+15)</span>
 					</button>
-					<button class="wash-btn" data-wash="shower">
+					<button class="wash-btn base-menu-btn" data-wash="shower">
 						<img src="{{ url_for('static', filename='img/shower_cabin.png') }}" alt="Take Shower">
 						<span>Take Shower (+60)</span>
 					</button>
-					<button class="wash-btn" data-wash="bath">
+					<button class="wash-btn base-menu-btn" data-wash="bath">
 						<img src="{{ url_for('static', filename='img/bath.png') }}" alt="Take Bath">
 						<span>Take Bath (+80)</span>
 					</button>
 				</div>
-				<button id="cancel-wash" class="cancel-btn">Cancel</button>
+				<button id="cancel-wash" class="base-cancel-btn">Cancel</button>
 			</div>
 			
 			<!-- Play selection menu -->
-			<div id="play-menu" class="play-menu" style="display: none;">
+			<div id="play-menu" class="base-menu" style="display: none;">
 				<h3>Choose play activity:</h3>
-				<div class="play-options">
-					<button class="play-btn" data-play="play_with_ball">
+				<div class="play-options base-menu-options">
+					<button class="play-btn base-menu-btn" data-play="play_with_ball">
 						<img src="{{ url_for('static', filename='img/tennis_ball.png') }}" alt="Play with Ball">
 						<span>Play with Ball (+25)</span>
 					</button>
-					<button class="play-btn" data-play="spin_in_wheel">
+					<button class="play-btn base-menu-btn" data-play="spin_in_wheel">
 						<img src="{{ url_for('static', filename='img/play_wheel.png') }}" alt="Spin in the Wheel">
 						<span>Spin in the Wheel (+25)</span>
 					</button>
 				</div>
-				<button id="cancel-play" class="cancel-btn">Cancel</button>
+				<button id="cancel-play" class="base-cancel-btn">Cancel</button>
 			</div>
 			
 			<!-- Storage modal -->

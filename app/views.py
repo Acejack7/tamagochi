@@ -2,11 +2,214 @@ from flask import Blueprint, render_template, redirect, url_for, request, flash,
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 
-from .models import Pet, PET_TYPES, Inventory
+from .models import Pet, Inventory
 from .extensions import db
+from .constants import (
+    PET_TYPES, FOOD_VALUES, WASH_VALUES, WASH_DURATIONS,
+    SLEEP_DURATIONS, PLAY_VALUES, SHOP_PRICES, ACTION_THRESHOLDS,
+    MINIGAME_CONFIG, UPDATE_INTERVALS
+)
 
 
 bp = Blueprint("main", __name__)
+
+
+# Action Handler Functions - Split from large pet_action function
+def handle_feed_action(pet, request_data):
+	"""Handle feed action logic"""
+	food_type = request_data.get("food_type")
+	if not food_type:
+		return {"success": False, "error": "Food type is required for feed action"}
+	
+	if food_type not in FOOD_VALUES:
+		return {"success": False, "error": "Invalid food type"}
+	
+	# Check if user has inventory
+	if not current_user.inventory:
+		return {"success": False, "error": "Inventory not found"}
+	
+	# Check if user has enough food
+	food_quantity = current_user.inventory.get_food_quantity(food_type)
+	if food_quantity <= 0:
+		return {"success": False, "error": f"No {food_type.replace('_', ' ')} left in inventory"}
+	
+	# Consume the food from inventory
+	if not current_user.inventory.consume_food(food_type, 1):
+		return {"success": False, "error": f"Failed to consume {food_type}"}
+	
+	# Apply hunger increase
+	hunger_increase = FOOD_VALUES[food_type]
+	old_hunger = pet.hunger
+	pet.hunger = min(100, pet.hunger + hunger_increase)
+	pet.last_fed = datetime.utcnow()
+	pet.hunger = round(pet.hunger, 1)
+	
+	print(f"FEED DEBUG: {food_type} - Hunger: {old_hunger} -> {pet.hunger} (+{hunger_increase}), Inventory: {food_quantity} -> {food_quantity - 1}")
+	
+	return {
+		"success": True,
+		"action": "feed",
+		"food_type": food_type,
+		"inventory": {
+			"tree_seed": current_user.inventory.tree_seed,
+			"blueberries": current_user.inventory.blueberries,
+			"mushroom": current_user.inventory.mushroom,
+			"coins": current_user.inventory.coins
+		},
+		"stats": {
+			"hunger": pet.hunger,
+			"happiness": pet.happiness,
+			"cleanliness": pet.cleanliness,
+			"energy": pet.energy
+		}
+	}
+
+
+def handle_play_action(pet, request_data):
+	"""Handle play action logic"""
+	play_type = request_data.get("play_type")
+	if not play_type:
+		return {"success": False, "error": "Play type is required for play action"}
+	
+	# Validate play type
+	if play_type not in PLAY_VALUES:
+		return {"success": False, "error": "Invalid play type"}
+	
+	# Check joy restrictions
+	max_joy = ACTION_THRESHOLDS['play']['max']
+	if pet.happiness >= max_joy:
+		return {"success": False, "error": f"Joy is too high for playing (max {max_joy-1}%)"}
+	
+	# Apply joy restoration
+	old_happiness = pet.happiness
+	joy_increase = PLAY_VALUES[play_type]
+	pet.happiness = min(100, pet.happiness + joy_increase)
+	pet.last_played = datetime.utcnow()
+	pet.happiness = round(pet.happiness, 1)
+	
+	print(f"PLAY DEBUG: {play_type} - Joy: {old_happiness} -> {pet.happiness} (+{joy_increase})")
+	
+	return {
+		"success": True,
+		"action": "play",
+		"play_type": play_type,
+		"stats": {
+			"hunger": pet.hunger,
+			"happiness": pet.happiness,
+			"cleanliness": pet.cleanliness,
+			"energy": pet.energy
+		}
+	}
+
+
+def handle_wash_action(pet, request_data):
+	"""Handle wash action logic"""
+	wash_type = request_data.get("wash_type")
+	if not wash_type:
+		return {"success": False, "error": "Wash type is required for wash action"}
+	
+	# Validate wash type
+	if wash_type not in WASH_VALUES:
+		return {"success": False, "error": "Invalid wash type"}
+	
+	# Check cleanliness restrictions
+	max_cleanliness = ACTION_THRESHOLDS['wash']['max']
+	if pet.cleanliness > max_cleanliness:
+		return {"success": False, "error": f"Cleanliness too high for washing (max {max_cleanliness}%)"}
+	
+	# Apply cleanliness restoration
+	old_cleanliness = pet.cleanliness
+	now = datetime.utcnow()
+	
+	cleanliness_increase = WASH_VALUES[wash_type]
+	pet.cleanliness = min(100, pet.cleanliness + cleanliness_increase)
+	pet.last_bathed = datetime.utcnow()
+	pet.cleanliness = round(pet.cleanliness, 1)
+	
+	# Set washing state with duration from constants
+	wash_duration_seconds = WASH_DURATIONS[wash_type]
+	pet.is_washing = True
+	pet.wash_start_time = now
+	pet.wash_type = wash_type
+	pet.wash_end_time = now + timedelta(seconds=wash_duration_seconds)
+	
+	print(f"WASH DEBUG: {wash_type} - Cleanliness: {old_cleanliness} -> {pet.cleanliness} (+{cleanliness_increase})")
+	
+	return {
+		"success": True,
+		"action": "wash",
+		"wash_type": wash_type,
+		"is_washing": pet.is_washing,
+		"wash_start_time": pet.wash_start_time.isoformat() if pet.wash_start_time else None,
+		"wash_end_time": pet.wash_end_time.isoformat() if pet.wash_end_time else None,
+		"stats": {
+			"hunger": pet.hunger,
+			"happiness": pet.happiness,
+			"cleanliness": pet.cleanliness,
+			"energy": pet.energy
+		}
+	}
+
+
+def handle_sleep_action(pet, request_data):
+	"""Handle sleep action logic"""
+	sleep_type = request_data.get("sleep_type")
+	auto_sleep = request_data.get("auto_sleep", False)
+	
+	if not sleep_type and not auto_sleep:
+		return {"success": False, "error": "Sleep type is required for sleep action"}
+	
+	# If auto_sleep is True, force sleep type to 'sleep'
+	if auto_sleep:
+		sleep_type = 'sleep'
+	
+	# Validate sleep type
+	if sleep_type not in SLEEP_DURATIONS:
+		return {"success": False, "error": "Invalid sleep type"}
+	
+	# Check energy restrictions (unless it's auto-sleep)
+	if not auto_sleep:
+		max_energy = ACTION_THRESHOLDS[f'sleep_{sleep_type}']['max'] if sleep_type == 'nap' else ACTION_THRESHOLDS['sleep_full']['max']
+		if pet.energy > max_energy:
+			return {"success": False, "error": f"Energy too high for {sleep_type} (max {max_energy}%)"}
+	
+	# Apply energy restoration using constants
+	old_energy = pet.energy
+	now = datetime.utcnow()
+	
+	sleep_config = SLEEP_DURATIONS[sleep_type]
+	if sleep_type == 'nap':
+		pet.energy = min(100, pet.energy + sleep_config['energy_restore'])
+	else:  # sleep_type == 'sleep'
+		pet.energy = sleep_config['energy_restore']  # Always restore to 100 for sleep
+	
+	# Set sleeping state using duration from constants
+	sleep_duration_minutes = sleep_config['minutes']
+	pet.is_sleeping = True
+	pet.sleep_start_time = now
+	pet.sleep_type = sleep_type
+	pet.sleep_end_time = now + timedelta(minutes=sleep_duration_minutes)
+	
+	pet.last_slept = datetime.utcnow()
+	pet.energy = round(pet.energy, 1)
+	
+	print(f"SLEEP DEBUG: {sleep_type} - Energy: {old_energy} -> {pet.energy}")
+	
+	return {
+		"success": True,
+		"action": "sleep",
+		"sleep_type": sleep_type,
+		"auto_sleep": auto_sleep,
+		"is_sleeping": pet.is_sleeping,
+		"sleep_start_time": pet.sleep_start_time.isoformat() if pet.sleep_start_time else None,
+		"sleep_end_time": pet.sleep_end_time.isoformat() if pet.sleep_end_time else None,
+		"stats": {
+			"hunger": pet.hunger,
+			"happiness": pet.happiness,
+			"cleanliness": pet.cleanliness,
+			"energy": pet.energy
+		}
+	}
 
 
 @bp.route("/")

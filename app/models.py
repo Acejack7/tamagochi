@@ -6,9 +6,10 @@ from typing import Optional
 from flask_login import UserMixin
 
 from .extensions import db, login_manager
-
-PET_TYPES = ["hedgehog", "hamster", "squirrel"]
-FOOD_TYPES = ["tree_seed", "blueberries", "mushroom"]
+from .constants import (
+    PET_TYPES, FOOD_TYPES, STAT_DECAY_RATES, INVENTORY_DEFAULTS, 
+    INVENTORY_LIMITS, PET_APPEARANCE_THRESHOLDS
+)
 
 
 class User(db.Model, UserMixin):
@@ -65,9 +66,9 @@ class Pet(db.Model):
 		"""Update stats based on time passed since last actions"""
 		now = datetime.utcnow()
 		
-		# Decay rates: Normal = 8.33 points per hour, During sleep = 4.17 points per hour
-		normal_decay_rate = 8.33
-		sleep_decay_rate = 4.17
+		# Decay rates from constants
+		normal_decay_rate = STAT_DECAY_RATES['normal']
+		sleep_decay_rate = STAT_DECAY_RATES['sleeping']
 		
 		# Check if pet is currently sleeping and determine decay rate
 		if self.is_sleeping:
@@ -173,12 +174,12 @@ class Inventory(db.Model):
 	owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, unique=True)
 
 	# Currency
-	coins = db.Column(db.Integer, nullable=False, default=100)
+	coins = db.Column(db.Integer, nullable=False, default=INVENTORY_DEFAULTS['coins'])
 
-	# Food quantities (max 100 each)
-	tree_seed = db.Column(db.Integer, nullable=False, default=5)
-	blueberries = db.Column(db.Integer, nullable=False, default=5)
-	mushroom = db.Column(db.Integer, nullable=False, default=5)
+	# Food quantities (max defined in constants)
+	tree_seed = db.Column(db.Integer, nullable=False, default=INVENTORY_DEFAULTS['tree_seed'])
+	blueberries = db.Column(db.Integer, nullable=False, default=INVENTORY_DEFAULTS['blueberries'])
+	mushroom = db.Column(db.Integer, nullable=False, default=INVENTORY_DEFAULTS['mushroom'])
 
 	created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 	
@@ -211,8 +212,8 @@ class Inventory(db.Model):
 		current_quantity = getattr(self, food_type, 0)
 		new_quantity = current_quantity + quantity
 
-		# Check if adding would exceed max limit (100)
-		if new_quantity > 100:
+		# Check if adding would exceed max limit
+		if new_quantity > INVENTORY_LIMITS['food_max']:
 			return False
 
 		setattr(self, food_type, new_quantity)
@@ -231,10 +232,10 @@ class Inventory(db.Model):
 		return True
 
 	def add_coins(self, amount: int) -> bool:
-		"""Add coins (respects max 10,000 limit). Returns True if successful"""
+		"""Add coins (respects max limit). Returns True if successful"""
 		new_total = self.coins + amount
-		if new_total > 10000:
-			self.coins = 10000  # Set to max
+		if new_total > INVENTORY_LIMITS['coins_max']:
+			self.coins = INVENTORY_LIMITS['coins_max']  # Set to max
 		else:
 			self.coins = new_total
 		return True
