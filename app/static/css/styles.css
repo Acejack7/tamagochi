@@ -283,8 +283,8 @@ main {
 }
 
 #game-container {
-	border: 2px solid #e1e4e8;
-	box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+	border: none;
+	box-shadow: none;
 }
 
 .auth-nav {

@@ -8,7 +8,7 @@ const config = {
 	parent: 'game-container',
 	width: GAME_WIDTH,
 	height: GAME_HEIGHT,
-	backgroundColor: '#87ceeb', // sky blue
+	backgroundColor: '#ffffff', // white
 	scene: { preload, create, update }
 };
 
@@ -547,7 +547,7 @@ function create() {
 		// Use real squirrel sprite
 		console.log('Creating squirrel sprite...');
 		pet = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'squirrel_idle');
-		pet.setScale(1);
+		pet.setScale(2);
 		console.log('Squirrel sprite created:', pet);
 	} else {
 		// Fallback to colored circle for other pets
@@ -1440,7 +1440,7 @@ function playActionAnimation(action) {
 	// Reset to normal scale after action
 	setTimeout(() => {
 		if (pet) {
-			pet.setScale(1);
+			pet.setScale(2);
 		}
 	}, 1000);
 }
