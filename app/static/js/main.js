@@ -13,6 +13,7 @@ const config = {
 };
 
 let pet;
+let petBorder = null; // Border around pet for debugging
 let petType = 'hedgehog'; // default, will be updated from server
 let gameScene;
 let currentPetState = 'idle';
@@ -502,6 +503,24 @@ function preload() {
 	this.load.image('squirrel_sleeping', '/static/sprites/squirrel_sleeping.png');
 	this.load.image('squirrel_sad', '/static/sprites/squirrel_sad.png');
 	
+	// Load squirrel idle animation sprite sheet (4 frames, 256x256 each)
+	this.load.spritesheet('squirrel_idle_anim', '/static/sprites/sheets/squirrel_idle_sprite.png', {
+		frameWidth: 256,
+		frameHeight: 256
+	});
+	
+	// Load squirrel hungry animation sprite sheet (4 frames, 256x256 each)
+	this.load.spritesheet('squirrel_hungry_anim', '/static/sprites/sheets/squirrel_hungry_sprite.png', {
+		frameWidth: 256,
+		frameHeight: 256
+	});
+	
+	// Load squirrel sleeping animation sprite sheet (4 frames, 256x256 each)
+	this.load.spritesheet('squirrel_sleeping_anim', '/static/sprites/sheets/squirrel_sleepy_sprite.png', {
+		frameWidth: 256,
+		frameHeight: 256
+	});
+	
 	// Load food images
 	this.load.image('mushroom', '/static/img/mushroom.png');
 	this.load.image('blueberries', '/static/img/blueberry.png');
@@ -544,11 +563,44 @@ function create() {
 
 	// Create pet based on type
 	if (petType === 'squirrel') {
-		// Use real squirrel sprite
-		console.log('Creating squirrel sprite...');
-		pet = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'squirrel_idle');
-		pet.setScale(2);
-		console.log('Squirrel sprite created:', pet);
+		// Use animated squirrel sprite
+		console.log('Creating animated squirrel sprite...');
+		pet = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'squirrel_idle_anim');
+		
+		// Since frames are already 256x256, we don't need to scale x2
+		pet.setScale(1);
+		
+		// Create idle animation (4 frames at 2fps = 2 seconds total)
+		this.anims.create({
+			key: 'squirrel_idle_animation',
+			frames: this.anims.generateFrameNumbers('squirrel_idle_anim', { start: 0, end: 3 }),
+			frameRate: 0.65,
+			repeat: -1 // Loop forever
+		});
+		
+		// Create hungry animation (4 frames at 2fps = 2 seconds total)
+		this.anims.create({
+			key: 'squirrel_hungry_animation',
+			frames: this.anims.generateFrameNumbers('squirrel_hungry_anim', { start: 0, end: 3 }),
+			frameRate: 0.65,
+			repeat: -1 // Loop forever
+		});
+		
+		// Create sleeping animation (4 frames at 2fps = 2 seconds total)
+		this.anims.create({
+			key: 'squirrel_sleeping_animation',
+			frames: this.anims.generateFrameNumbers('squirrel_sleeping_anim', { start: 0, end: 3 }),
+			frameRate: 0.65,
+			repeat: -1 // Loop forever
+		});
+		
+		// Start the idle animation
+		pet.play('squirrel_idle_animation');
+		
+		console.log('Animated squirrel sprite created:', pet);
+		
+		// Add debug border around squirrel
+		createPetBorder(this);
 	} else {
 		// Fallback to colored circle for other pets
 		console.log('Creating fallback circle for:', petType);
@@ -560,6 +612,9 @@ function create() {
 
 		pet = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'pet');
 		pet.setScale(1);
+		
+		// Add debug border around pet
+		createPetBorder(this);
 	}
 
 	// No breathing animation for now - keeping pets at consistent scale
@@ -576,6 +631,32 @@ function create() {
 
 function update() {
 	// Reserved for future game loop logic
+}
+
+// Debug function to create border around pet
+function createPetBorder(scene) {
+	if (!pet) return;
+	
+	// Remove existing border if any
+	if (petBorder) {
+		petBorder.destroy();
+	}
+	
+	// Get pet bounds (approximate)
+	const petWidth = pet.displayWidth;
+	const petHeight = pet.displayHeight;
+	
+	// Create border graphics
+	petBorder = scene.add.graphics();
+	petBorder.lineStyle(3, 0x00ff00); // Green border, 3px thick
+	petBorder.strokeRect(
+		pet.x - petWidth / 2,
+		pet.y - petHeight / 2,
+		petWidth,
+		petHeight
+	);
+	
+	console.log(`Pet border created: ${petWidth}x${petHeight} pixels at position (${pet.x}, ${pet.y})`);
 }
 
 function setupAutoUpdates() {
@@ -1440,7 +1521,7 @@ function playActionAnimation(action) {
 	// Reset to normal scale after action
 	setTimeout(() => {
 		if (pet) {
-			pet.setScale(2);
+			pet.setScale(1);
 		}
 	}, 1000);
 }
@@ -1632,25 +1713,67 @@ function changePetState(newState) {
 	
 	console.log('Changing pet state from', currentPetState, 'to', newState);
 	currentPetState = newState;
-	const spriteKey = PET_SPRITES[petType][newState];
 	
-	console.log('Sprite key:', spriteKey, 'Texture exists:', gameScene.textures.exists(spriteKey));
-	
-	if (spriteKey && gameScene.textures.exists(spriteKey)) {
-		pet.setTexture(spriteKey);
-		console.log('Texture changed to:', spriteKey);
+	if (newState === 'idle') {
+		// For idle state, use the animated sprite
+		console.log('Switching to animated idle state');
 		
-		// Add a subtle transition effect
-		pet.setAlpha(0.8);
-		gameScene.tweens.add({
-			targets: pet,
-			alpha: 1,
-			duration: 200,
-			ease: 'Power2'
-		});
+		// Stop any current animation
+		pet.stop();
+		
+		// Set to animated sprite texture and start animation
+		pet.setTexture('squirrel_idle_anim');
+		pet.play('squirrel_idle_animation');
+		
+		console.log('Animated idle state activated');
+	} else if (newState === 'hungry') {
+		// For hungry state, use the animated sprite
+		console.log('Switching to animated hungry state');
+		
+		// Stop any current animation
+		pet.stop();
+		
+		// Set to animated sprite texture and start animation
+		pet.setTexture('squirrel_hungry_anim');
+		pet.play('squirrel_hungry_animation');
+		
+		console.log('Animated hungry state activated');
+	} else if (newState === 'sleeping') {
+		// For sleeping state, use the animated sprite
+		console.log('Switching to animated sleeping state');
+		
+		// Stop any current animation
+		pet.stop();
+		
+		// Set to animated sprite texture and start animation
+		pet.setTexture('squirrel_sleeping_anim');
+		pet.play('squirrel_sleeping_animation');
+		
+		console.log('Animated sleeping state activated');
 	} else {
-		console.log('Failed to change texture:', { spriteKey, exists: gameScene.textures.exists(spriteKey) });
+		// For other states, use static sprites
+		const spriteKey = PET_SPRITES[petType][newState];
+		
+		console.log('Sprite key:', spriteKey, 'Texture exists:', gameScene.textures.exists(spriteKey));
+		
+		if (spriteKey && gameScene.textures.exists(spriteKey)) {
+			// Stop animation and switch to static sprite
+			pet.stop();
+			pet.setTexture(spriteKey);
+			console.log('Texture changed to:', spriteKey);
+		} else {
+			console.log('Failed to change texture:', { spriteKey, exists: gameScene.textures.exists(spriteKey) });
+		}
 	}
+	
+	// Add a subtle transition effect
+	pet.setAlpha(0.8);
+	gameScene.tweens.add({
+		targets: pet,
+		alpha: 1,
+		duration: 200,
+		ease: 'Power2'
+	});
 }
 
 function updateSingleStat(statName, value) {
