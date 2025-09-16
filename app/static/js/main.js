@@ -2777,6 +2777,8 @@ document.addEventListener('DOMContentLoaded', function() {
 	const closeMinigameBtn = document.getElementById('close-minigame');
 	const higherLowerGame = document.getElementById('higher-lower-game');
 	const closeHigherLowerBtn = document.getElementById('close-higher-lower');
+	const labyrinthGame = document.getElementById('labyrinth-game');
+	const closeLabyrinthBtn = document.getElementById('close-labyrinth');
 	
 	// Check joy requirement and update button state
 	function updateMinigameButtonState() {
@@ -2831,6 +2833,8 @@ document.addEventListener('DOMContentLoaded', function() {
 			const gameType = this.dataset.game;
 			if (gameType === 'higher_lower') {
 				startHigherLowerGame();
+			} else if (gameType === 'labyrinth') {
+				startLabyrinthGame();
 			}
 		});
 	});
@@ -2942,6 +2946,301 @@ document.addEventListener('DOMContentLoaded', function() {
 		}
 	}
 	
+	// Labyrinth game variables
+	let labyrinthCanvas, labyrinthCtx;
+	let labyrinthGameState = {
+		player: { x: 1, y: 1 },
+		foods: [],
+		collected: { blueberry: 0, acorn: 0 },
+		gameSize: 15,
+		cellSize: 32,
+		gameActive: false,
+		images: {}
+	};
+	
+	// Start Labyrinth game
+	function startLabyrinthGame() {
+		minigameModal.style.display = 'none';
+		labyrinthGame.style.display = 'flex';
+		
+		// Reset game state
+		document.getElementById('labyrinth-result').style.display = 'none';
+		labyrinthGameState.collected = { blueberry: 0, acorn: 0 };
+		labyrinthGameState.gameActive = true;
+		
+		// Initialize canvas
+		labyrinthCanvas = document.getElementById('labyrinth-canvas');
+		labyrinthCtx = labyrinthCanvas.getContext('2d');
+		
+		// Load images and start game
+		loadLabyrinthImages().then(() => {
+			initializeLabyrinthGame();
+		}).catch(error => {
+			console.error('Error loading labyrinth images:', error);
+			showLabyrinthResult('Error loading game images', false);
+		});
+	}
+	
+	// Load game images
+	function loadLabyrinthImages() {
+		return new Promise((resolve, reject) => {
+			const imagesToLoad = [
+				{ key: 'squirrel', src: '/static/img/minigames/lab/squrirrel.png' },
+				{ key: 'blueberry', src: '/static/img/minigames/lab/blueberry.png' },
+				{ key: 'acorn', src: '/static/img/minigames/lab/acorn.png' }
+			];
+			
+			let loadedCount = 0;
+			const totalImages = imagesToLoad.length;
+			
+			imagesToLoad.forEach(imageInfo => {
+				const img = new Image();
+				img.onload = () => {
+					labyrinthGameState.images[imageInfo.key] = img;
+					loadedCount++;
+					if (loadedCount === totalImages) {
+						resolve();
+					}
+				};
+				img.onerror = () => reject(new Error(`Failed to load ${imageInfo.key}`));
+				img.src = imageInfo.src;
+			});
+		});
+	}
+	
+	// Initialize game board
+	function initializeLabyrinthGame() {
+		const gameSize = labyrinthGameState.gameSize;
+		
+		// Reset player position
+		labyrinthGameState.player = { x: 1, y: 1 };
+		
+		// Generate food positions (avoiding player start position)
+		labyrinthGameState.foods = [];
+		
+		// Add 2 blueberries and 2 acorns at random positions
+		const foodTypes = ['blueberry', 'blueberry', 'acorn', 'acorn'];
+		
+		foodTypes.forEach(type => {
+			let position;
+			do {
+				position = {
+					x: Math.floor(Math.random() * (gameSize - 2)) + 1,
+					y: Math.floor(Math.random() * (gameSize - 2)) + 1,
+					type: type
+				};
+			} while (
+				(position.x === labyrinthGameState.player.x && position.y === labyrinthGameState.player.y) ||
+				labyrinthGameState.foods.some(food => food.x === position.x && food.y === position.y)
+			);
+			
+			labyrinthGameState.foods.push(position);
+		});
+		
+		// Update UI
+		updateLabyrinthUI();
+		
+		// Draw initial state
+		drawLabyrinthGame();
+		
+		// Add keyboard listeners
+		document.addEventListener('keydown', handleLabyrinthKeydown);
+	}
+	
+	// Handle keyboard input
+	function handleLabyrinthKeydown(event) {
+		if (!labyrinthGameState.gameActive) return;
+		
+		const player = labyrinthGameState.player;
+		const gameSize = labyrinthGameState.gameSize;
+		let newX = player.x;
+		let newY = player.y;
+		
+		switch(event.key) {
+			case 'ArrowUp':
+				newY = Math.max(1, player.y - 1);
+				event.preventDefault();
+				break;
+			case 'ArrowDown':
+				newY = Math.min(gameSize - 2, player.y + 1);
+				event.preventDefault();
+				break;
+			case 'ArrowLeft':
+				newX = Math.max(1, player.x - 1);
+				event.preventDefault();
+				break;
+			case 'ArrowRight':
+				newX = Math.min(gameSize - 2, player.x + 1);
+				event.preventDefault();
+				break;
+			default:
+				return;
+		}
+		
+		// Update player position
+		labyrinthGameState.player.x = newX;
+		labyrinthGameState.player.y = newY;
+		
+		// Check for food collection
+		checkFoodCollection();
+		
+		// Redraw game
+		drawLabyrinthGame();
+		
+		// Update UI
+		updateLabyrinthUI();
+		
+		// Check win condition
+		if (labyrinthGameState.foods.length === 0) {
+			completeLabyrinthGame();
+		}
+	}
+	
+	// Check if player collected any food
+	function checkFoodCollection() {
+		const player = labyrinthGameState.player;
+		const foodIndex = labyrinthGameState.foods.findIndex(food => 
+			food.x === player.x && food.y === player.y
+		);
+		
+		if (foodIndex !== -1) {
+			const food = labyrinthGameState.foods[foodIndex];
+			labyrinthGameState.collected[food.type]++;
+			labyrinthGameState.foods.splice(foodIndex, 1);
+		}
+	}
+	
+	// Update UI elements
+	function updateLabyrinthUI() {
+		document.getElementById('blueberry-count').textContent = `🫐 × ${labyrinthGameState.collected.blueberry}`;
+		document.getElementById('acorn-count').textContent = `🌰 × ${labyrinthGameState.collected.acorn}`;
+		document.getElementById('remaining-items').textContent = `Items left: ${labyrinthGameState.foods.length}`;
+	}
+	
+	// Draw the game
+	function drawLabyrinthGame() {
+		const ctx = labyrinthCtx;
+		const cellSize = labyrinthGameState.cellSize;
+		const gameSize = labyrinthGameState.gameSize;
+		
+		// Clear canvas
+		ctx.clearRect(0, 0, labyrinthCanvas.width, labyrinthCanvas.height);
+		
+		// Draw grid background
+		ctx.fillStyle = '#f0f8ff';
+		ctx.fillRect(0, 0, labyrinthCanvas.width, labyrinthCanvas.height);
+		
+		// Draw borders
+		ctx.strokeStyle = '#333';
+		ctx.lineWidth = 2;
+		ctx.strokeRect(0, 0, gameSize * cellSize, gameSize * cellSize);
+		
+		// Draw grid lines
+		ctx.strokeStyle = '#ddd';
+		ctx.lineWidth = 1;
+		for (let i = 1; i < gameSize; i++) {
+			// Vertical lines
+			ctx.beginPath();
+			ctx.moveTo(i * cellSize, 0);
+			ctx.lineTo(i * cellSize, gameSize * cellSize);
+			ctx.stroke();
+			
+			// Horizontal lines
+			ctx.beginPath();
+			ctx.moveTo(0, i * cellSize);
+			ctx.lineTo(gameSize * cellSize, i * cellSize);
+			ctx.stroke();
+		}
+		
+		// Draw food items
+		labyrinthGameState.foods.forEach(food => {
+			const img = labyrinthGameState.images[food.type];
+			if (img) {
+				ctx.drawImage(img, food.x * cellSize, food.y * cellSize, cellSize, cellSize);
+			}
+		});
+		
+		// Draw player (squirrel)
+		const player = labyrinthGameState.player;
+		const squirrelImg = labyrinthGameState.images.squirrel;
+		if (squirrelImg) {
+			ctx.drawImage(squirrelImg, player.x * cellSize, player.y * cellSize, cellSize, cellSize);
+		}
+	}
+	
+	// Complete the game
+	function completeLabyrinthGame() {
+		labyrinthGameState.gameActive = false;
+		document.removeEventListener('keydown', handleLabyrinthKeydown);
+		
+		const totalCollected = labyrinthGameState.collected.blueberry + labyrinthGameState.collected.acorn;
+		
+		// Send results to server
+		sendLabyrinthResults();
+		
+		// Show completion message
+		showLabyrinthResult(`Congratulations! You collected all ${totalCollected} items!`, true);
+	}
+	
+	// Send results to server
+	function sendLabyrinthResults() {
+		fetch('/api/minigame/labyrinth', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({
+				collected: labyrinthGameState.collected
+			})
+		})
+		.then(response => response.json())
+		.then(data => {
+			if (data.success) {
+				document.getElementById('labyrinth-reward').textContent = data.reward_message;
+				
+				// Update inventory display if available
+				if (data.inventory && window.updateInventoryDisplay) {
+					window.updateInventoryDisplay(data.inventory);
+				}
+			}
+		})
+		.catch(error => {
+			console.error('Error sending labyrinth results:', error);
+		});
+	}
+	
+	// Show game result
+	function showLabyrinthResult(message, success) {
+		document.getElementById('labyrinth-message').textContent = message;
+		document.getElementById('labyrinth-message').className = success ? 'result-message success' : 'result-message error';
+		document.getElementById('labyrinth-result').style.display = 'block';
+	}
+	
+	// Close Labyrinth game
+	closeLabyrinthBtn.addEventListener('click', function() {
+		labyrinthGame.style.display = 'none';
+		labyrinthGameState.gameActive = false;
+		document.removeEventListener('keydown', handleLabyrinthKeydown);
+	});
+	
+	// Close game when clicking outside
+	labyrinthGame.addEventListener('click', function(e) {
+		if (e.target === labyrinthGame) {
+			labyrinthGame.style.display = 'none';
+			labyrinthGameState.gameActive = false;
+			document.removeEventListener('keydown', handleLabyrinthKeydown);
+		}
+	});
+	
+	// Play again button for labyrinth
+	document.getElementById('labyrinth-play-again').addEventListener('click', function() {
+		// Reset and restart the game
+		document.getElementById('labyrinth-result').style.display = 'none';
+		labyrinthGameState.collected = { blueberry: 0, acorn: 0 };
+		labyrinthGameState.gameActive = true;
+		initializeLabyrinthGame();
+	});
+
 	// Make updateMinigameButtonFromStats available globally
 	window.updateMinigameButtonFromStats = updateMinigameButtonFromStats;
 });

@@ -5,7 +5,7 @@ Centralizes all magic numbers and configuration values.
 
 # Pet Types
 PET_TYPES = ["hedgehog", "hamster", "squirrel"]
-FOOD_TYPES = ["tree_seed", "blueberries", "mushroom"]
+FOOD_TYPES = ["tree_seed", "blueberries", "mushroom", "acorn"]
 
 # Stat Configuration
 STAT_DECAY_RATES = {
@@ -32,7 +32,8 @@ ACTION_THRESHOLDS = {
 FOOD_VALUES = {
     "mushroom": 10,
     "blueberries": 15,
-    "tree_seed": 5
+    "tree_seed": 5,
+    "acorn": 25
 }
 
 # Sleep Configuration
@@ -75,6 +76,7 @@ INVENTORY_DEFAULTS = {
     'tree_seed': 5,
     'blueberries': 5,
     'mushroom': 5,
+    'acorn': 5,
     'coins': 100
 }
 
@@ -87,7 +89,8 @@ INVENTORY_LIMITS = {
 SHOP_PRICES = {
     "tree_seed": 1,
     "blueberries": 3,
-    "mushroom": 2
+    "mushroom": 2,
+    "acorn": 6
 }
 
 # Minigame Configuration

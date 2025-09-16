@@ -180,6 +180,7 @@ class Inventory(db.Model):
 	tree_seed = db.Column(db.Integer, nullable=False, default=INVENTORY_DEFAULTS['tree_seed'])
 	blueberries = db.Column(db.Integer, nullable=False, default=INVENTORY_DEFAULTS['blueberries'])
 	mushroom = db.Column(db.Integer, nullable=False, default=INVENTORY_DEFAULTS['mushroom'])
+	acorn = db.Column(db.Integer, nullable=False, default=INVENTORY_DEFAULTS['acorn'])
 
 	created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 	

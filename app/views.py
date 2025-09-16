@@ -716,6 +716,89 @@ def minigame_higher_lower():
 	})
 
 
+@bp.route("/api/minigame/labyrinth", methods=["POST"])
+@login_required
+def minigame_labyrinth():
+	if not current_user.pet:
+		return jsonify({"error": "No pet found"}), 404
+	
+	if not current_user.inventory:
+		return jsonify({"error": "No inventory found"}), 404
+	
+	# Check if pet is sleeping or washing
+	if current_user.pet.is_sleeping:
+		return jsonify({"error": "Cannot play minigames while pet is sleeping"}), 400
+	
+	if current_user.pet.is_washing:
+		return jsonify({"error": "Cannot play minigames while pet is washing"}), 400
+	
+	# Check joy requirement (minimum 40)
+	if current_user.pet.happiness < 40:
+		return jsonify({"error": "Joy too low! Need at least 40% to play minigames"}), 400
+	
+	# Get collected items
+	collected = request.json.get("collected", {})
+	blueberries = collected.get("blueberry", 0)
+	acorns = collected.get("acorn", 0)
+	
+	# Validate input
+	if not isinstance(blueberries, int) or not isinstance(acorns, int):
+		return jsonify({"error": "Invalid collected items data"}), 400
+	
+	if blueberries < 0 or acorns < 0 or blueberries > 2 or acorns > 2:
+		return jsonify({"error": "Invalid number of collected items"}), 400
+	
+	total_collected = blueberries + acorns
+	
+	if total_collected == 0:
+		return jsonify({"error": "No items collected"}), 400
+	
+	# Add collected items to inventory
+	if blueberries > 0:
+		current_user.inventory.add_food("blueberries", blueberries)
+	
+	if acorns > 0:
+		# Add acorns to inventory
+		current_user.inventory.add_food("acorn", acorns)
+	
+	# Increase pet happiness slightly for playing
+	old_happiness = current_user.pet.happiness
+	happiness_bonus = min(2, total_collected)  # 1 point per item, max 2
+	current_user.pet.happiness = min(100, current_user.pet.happiness + happiness_bonus)
+	current_user.pet.happiness = round(current_user.pet.happiness, 1)
+	
+	# Commit changes
+	db.session.commit()
+	
+	# Create reward message
+	items_text = []
+	if blueberries > 0:
+		items_text.append(f"{blueberries} blueberr{'y' if blueberries == 1 else 'ies'}")
+	if acorns > 0:
+		items_text.append(f"{acorns} acorn{'s' if acorns != 1 else ''}")
+	
+	reward_message = f"Great job! You collected {' and '.join(items_text)}! +{happiness_bonus} joy 🎉"
+	
+	print(f"MINIGAME: {current_user.username} played Labyrinth - Collected: {blueberries} blueberries, {acorns} acorns")
+	
+	return jsonify({
+		"success": True,
+		"game": "labyrinth",
+		"collected": {
+			"blueberry": blueberries,
+			"acorn": acorns
+		},
+		"reward_message": reward_message,
+		"inventory": {
+			"blueberries": current_user.inventory.blueberries,
+			"acorn": current_user.inventory.acorn
+		},
+		"stats": {
+			"happiness": current_user.pet.happiness
+		}
+	})
+
+
 @bp.route("/api/pet/test-action", methods=["POST"])
 @login_required
 def pet_test_action():

@@ -283,8 +283,8 @@ main {
 }
 
 #game-container {
-	border: none;
-	box-shadow: none;
+	border: 3px solid #ff0000;
+	box-shadow: 0 4px 12px rgba(0,0,0,0.06);
 }
 
 .auth-nav {
@@ -1903,4 +1903,84 @@ bd.notification .notification-close:hover {
 	}
 }
 
+/* Labyrinth Game Styles */
+.labyrinth-content {
+	max-width: 600px;
+	width: 90vw;
+}
+
+.game-stats {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 16px;
+	padding: 12px;
+	background: #f8f9fa;
+	border-radius: 8px;
+	border: 1px solid #e9ecef;
+}
+
+.collected-items {
+	display: flex;
+	gap: 16px;
+}
+
+.item-count {
+	font-size: 16px;
+	font-weight: 600;
+	color: #333;
+	background: #fff;
+	padding: 6px 12px;
+	border-radius: 20px;
+	border: 1px solid #ddd;
+}
+
+.remaining-items {
+	font-size: 16px;
+	font-weight: 600;
+	color: #666;
+}
+
+#labyrinth-canvas {
+	display: block;
+	margin: 0 auto;
+	border: 2px solid #333;
+	border-radius: 8px;
+	background: #f0f8ff;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.game-controls {
+	text-align: center;
+	margin-top: 16px;
+}
+
+.control-hint {
+	color: #666;
+	font-size: 14px;
+	font-style: italic;
+}
+
+/* Responsive canvas */
+@media (max-width: 768px) {
+	.labyrinth-content {
+		width: 95vw;
+	}
+	
+	#labyrinth-canvas {
+		width: 100%;
+		height: auto;
+		max-width: 360px;
+	}
+	
+	.game-stats {
+		flex-direction: column;
+		gap: 8px;
+		align-items: center;
+	}
+	
+	.collected-items {
+		gap: 12px;
+	}
+}
 

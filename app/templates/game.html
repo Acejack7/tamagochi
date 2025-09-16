@@ -90,6 +90,15 @@
 							</div>
 							<button class="play-minigame-btn" data-game="higher_lower">Play</button>
 						</div>
+						<div class="minigame-item" data-game="labyrinth">
+							<div class="minigame-icon">🏃</div>
+							<div class="minigame-info">
+								<div class="minigame-name">Labyrinth</div>
+								<div class="minigame-description">Move your squirrel to collect food using arrow keys</div>
+								<div class="minigame-requirement">Requires: Joy ≥ 40</div>
+							</div>
+							<button class="play-minigame-btn" data-game="labyrinth">Play</button>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -118,6 +127,35 @@
 				</div>
 			</div>
 			
+			<!-- Labyrinth Game Interface -->
+			<div id="labyrinth-game" class="minigame-modal" style="display: none;">
+				<div class="minigame-game-content labyrinth-content">
+					<div class="game-header">
+						<h3>🏃 Labyrinth</h3>
+						<button class="close-btn" id="close-labyrinth">&times;</button>
+					</div>
+					<div class="game-area">
+						<div class="game-instruction">Use arrow keys to move your squirrel and collect all the food!</div>
+						<div class="game-stats">
+							<div class="collected-items">
+								<span class="item-count" id="blueberry-count">🫐 × 0</span>
+								<span class="item-count" id="acorn-count">🌰 × 0</span>
+							</div>
+							<div class="remaining-items" id="remaining-items">Items left: 4</div>
+						</div>
+						<canvas id="labyrinth-canvas" width="480" height="480"></canvas>
+						<div class="game-controls">
+							<div class="control-hint">Use ↑ ↓ ← → arrow keys to move</div>
+						</div>
+						<div class="game-result" id="labyrinth-result" style="display: none;">
+							<div class="result-message" id="labyrinth-message"></div>
+							<div class="result-reward" id="labyrinth-reward"></div>
+							<button class="play-again-btn" id="labyrinth-play-again">Play Again</button>
+						</div>
+					</div>
+				</div>
+			</div>
+			
 			<!-- Food selection menu -->
 			<div id="food-menu" class="base-menu" style="display: none;">
 				<h3>Choose food:</h3>
@@ -133,6 +171,10 @@
 					<button class="food-btn base-menu-btn" data-food="tree_seed">
 						<img src="{{ url_for('static', filename='img/tree_seed.png') }}" alt="Tree Seed">
 						<span>Tree Seed (+5) <span class="food-quantity" data-food-type="tree_seed">({{ inventory.tree_seed if inventory else 0 }})</span></span>
+					</button>
+					<button class="food-btn base-menu-btn" data-food="acorn">
+						<img src="{{ url_for('static', filename='img/acorn.png') }}" alt="Acorn">
+						<span>Acorn (+25) <span class="food-quantity" data-food-type="acorn">({{ inventory.acorn if inventory else 0 }})</span></span>
 					</button>
 				</div>
 				<button id="cancel-food" class="base-cancel-btn">Cancel</button>
@@ -229,6 +271,17 @@
 								<div class="item-description">Earthy forest mushroom (+10 hunger)</div>
 							</div>
 							<div class="item-quantity" id="storage-mushroom">{{ inventory.mushroom if inventory else 0 }}</div>
+						</div>
+
+						<div class="storage-item" data-item="acorn">
+							<div class="item-icon">
+								<img src="{{ url_for('static', filename='img/acorn.png') }}" alt="Acorn">
+							</div>
+							<div class="item-info">
+								<div class="item-name">Acorn</div>
+								<div class="item-description">Nutritious nut (+25 hunger)</div>
+							</div>
+							<div class="item-quantity" id="storage-acorn">{{ inventory.acorn if inventory else 0 }}</div>
 						</div>
 					</div>
 					<div class="storage-footer">
@@ -329,6 +382,34 @@
 									Total: <span id="total-blueberries">3</span> coins
 								</div>
 								<button class="buy-btn" id="buy-blueberries" data-food="blueberries">
+									Buy
+								</button>
+							</div>
+						</div>
+
+						<div class="shop-item" data-food="acorn" data-price="6">
+							<div class="shop-item-icon">
+								<img src="{{ url_for('static', filename='img/acorn.png') }}" alt="Acorn">
+							</div>
+							<div class="shop-item-info">
+								<div class="shop-item-name">Acorn</div>
+								<div class="shop-item-description">+25 Hunger • Max 100</div>
+								<div class="shop-item-price">
+									<img src="{{ url_for('static', filename='img/coins.png') }}" alt="Coins" class="price-coin-icon">
+									<span class="price-amount">6</span>
+									<span class="price-per-unit">each</span>
+								</div>
+							</div>
+							<div class="quantity-selector">
+								<button class="qty-btn minus-btn" data-food="acorn">-</button>
+								<input type="number" class="qty-input" id="qty-acorn" value="1" min="1" max="100">
+								<button class="qty-btn plus-btn" data-food="acorn">+</button>
+							</div>
+							<div class="purchase-section">
+								<div class="total-cost">
+									Total: <span id="total-acorn">6</span> coins
+								</div>
+								<button class="buy-btn" id="buy-acorn" data-food="acorn">
 									Buy
 								</button>
 							</div>
