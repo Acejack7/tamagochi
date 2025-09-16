@@ -69,7 +69,8 @@ const PET_SPRITES = {
 		hungry: 'squirrel_hungry',
 		sleeping: 'squirrel_sleeping',
 		sad: 'squirrel_sad',
-		dirty: 'squirrel_dirty'
+		dirty: 'squirrel_dirty',
+		bored: 'squirrel_bored'
 	}
 };
 
@@ -528,6 +529,12 @@ function preload() {
 		frameHeight: 256
 	});
 	
+	// Load squirrel bored animation sprite sheet (4 frames, 256x256 each)
+	this.load.spritesheet('squirrel_bored_anim', '/static/sprites/sheets/squirrel_bored_sprite.png', {
+		frameWidth: 256,
+		frameHeight: 256
+	});
+	
 	// Load food images
 	this.load.image('mushroom', '/static/img/mushroom.png');
 	this.load.image('blueberries', '/static/img/blueberry.png');
@@ -605,6 +612,14 @@ function create() {
 		this.anims.create({
 			key: 'squirrel_dirty_animation',
 			frames: this.anims.generateFrameNumbers('squirrel_dirty_anim', { start: 0, end: 3 }),
+			frameRate: 0.65,
+			repeat: -1 // Loop forever
+		});
+		
+		// Create bored animation (4 frames at 2fps = 2 seconds total)
+		this.anims.create({
+			key: 'squirrel_bored_animation',
+			frames: this.anims.generateFrameNumbers('squirrel_bored_anim', { start: 0, end: 3 }),
 			frameRate: 0.65,
 			repeat: -1 // Loop forever
 		});
@@ -1688,40 +1703,162 @@ function updateButtonStates(stats) {
 function updatePetAppearance(stats) {
 	if (!pet || petType !== 'squirrel') return;
 	
-	// Determine pet state based on stats
-	let newState = 'idle';
+	// Determine active states based on thresholds (multiple states can be active)
+	const activeStates = [];
 	
-	// Priority order: Energy > Hunger > Cleanliness > Joy > Happy > Idle
-	
-	// 1. Check if energy is lower than 30 (sleeping takes highest priority)
+	// Check each condition independently
 	if (stats.energy < 30) {
-		newState = 'sleeping';
+		activeStates.push('sleeping');
 	}
-	// 2. Check if hunger is lower than 50 (but energy is 30 or higher)
-	else if (stats.hunger < 50) {
-		newState = 'hungry';
+	if (stats.hunger < 50) {
+		activeStates.push('hungry');
 	}
-	// 3. Check if cleanliness is lower than 40 (but energy >= 30 and hunger >= 50)
-	else if (stats.cleanliness < 40) {
-		newState = 'dirty';
+	if (stats.cleanliness < 40) {
+		activeStates.push('dirty');
 	}
-	// 4. Check if joy (happiness) is lower than 40 (but energy >= 30, hunger >= 50, and cleanliness >= 40)
-	else if (stats.happiness < 40) {
-		newState = 'sad';
-	}
-	// 5. Check if ALL stats are 80 or higher (happy state)
-	else if (stats.hunger >= 80 && stats.happiness >= 80 && stats.cleanliness >= 80 && stats.energy >= 80) {
-		newState = 'happy';
-	}
-	// 6. Default to idle state
-	else {
-		newState = 'idle';
+	if (stats.happiness < 50) {
+		activeStates.push('bored');
 	}
 	
-	// Only change if state actually changed
-	if (newState !== currentPetState) {
-		changePetState(newState);
+	// Special states that override others
+	if (stats.hunger >= 80 && stats.happiness >= 80 && stats.cleanliness >= 80 && stats.energy >= 80) {
+		activeStates.length = 0; // Clear other states
+		activeStates.push('happy');
 	}
+	
+	// If no negative conditions are met, default to idle
+	if (activeStates.length === 0) {
+		activeStates.push('idle');
+	}
+	
+	// Create a state key for comparison (sorted to ensure consistency)
+	const newStateKey = activeStates.sort().join('+');
+	
+	// Only change if state combination actually changed
+	if (newStateKey !== currentPetState) {
+		changePetStateMulti(activeStates, newStateKey);
+	}
+}
+
+function changePetStateMulti(activeStates, stateKey) {
+	if (!pet || petType !== 'squirrel') {
+		console.log('Cannot change pet state:', { pet: !!pet, petType, activeStates });
+		return;
+	}
+	
+	console.log('Changing pet state from', currentPetState, 'to', stateKey, '(states:', activeStates, ')');
+	currentPetState = stateKey;
+	
+	// Map state names to their animation sprite sheet keys
+	const stateToSpriteSheet = {
+		'idle': 'squirrel_idle_anim',
+		'hungry': 'squirrel_hungry_anim',
+		'sleeping': 'squirrel_sleeping_anim',
+		'dirty': 'squirrel_dirty_anim',
+		'bored': 'squirrel_bored_anim'
+	};
+	
+	// Handle single states that use animated sprites
+	if (activeStates.length === 1) {
+		const state = activeStates[0];
+		
+		if (stateToSpriteSheet[state]) {
+			// Use animated sprite
+			console.log(`Switching to animated ${state} state`);
+			pet.stop();
+			pet.setTexture(stateToSpriteSheet[state]);
+			pet.play(`squirrel_${state}_animation`);
+			console.log(`Animated ${state} state activated`);
+		} else {
+			// Use static sprite (happy, sad)
+			const spriteKey = PET_SPRITES[petType][state];
+			console.log('Sprite key:', spriteKey, 'Texture exists:', gameScene.textures.exists(spriteKey));
+			
+			if (spriteKey && gameScene.textures.exists(spriteKey)) {
+				pet.stop();
+				pet.setTexture(spriteKey);
+				console.log('Texture changed to:', spriteKey);
+			} else {
+				console.log('Failed to change texture:', { spriteKey, exists: gameScene.textures.exists(spriteKey) });
+			}
+		}
+	} else {
+		// Handle multiple states - create combined animation
+		createCombinedAnimation(activeStates, stateKey);
+	}
+	
+	// Add a subtle transition effect
+	pet.setAlpha(0.8);
+	gameScene.tweens.add({
+		targets: pet,
+		alpha: 1,
+		duration: 300,
+		ease: 'Power2'
+	});
+}
+
+function createCombinedAnimation(activeStates, stateKey) {
+	const animationKey = `squirrel_combined_${stateKey.replace(/\+/g, '_')}`;
+	
+	// Check if this combined animation already exists
+	if (gameScene.anims.exists(animationKey)) {
+		console.log(`Using existing combined animation: ${animationKey}`);
+		pet.stop();
+		pet.setTexture('squirrel_idle_anim'); // Use any sprite sheet as base texture
+		pet.play(animationKey);
+		return;
+	}
+	
+	console.log(`Creating combined animation: ${animationKey} for states:`, activeStates);
+	
+	// Build combined frame sequence
+	const combinedFrames = [];
+	const stateToSpriteSheet = {
+		'idle': 'squirrel_idle_anim',
+		'hungry': 'squirrel_hungry_anim',
+		'sleeping': 'squirrel_sleeping_anim',
+		'dirty': 'squirrel_dirty_anim',
+		'bored': 'squirrel_bored_anim'
+	};
+	
+	// Add frames from each active state (only animated states)
+	activeStates.forEach(state => {
+		const spriteSheetKey = stateToSpriteSheet[state];
+		if (spriteSheetKey) {
+			// Add all 4 frames from this state's sprite sheet
+			for (let i = 0; i < 4; i++) {
+				combinedFrames.push({
+					key: spriteSheetKey,
+					frame: i
+				});
+			}
+		}
+	});
+	
+	// If no animated states, fall back to idle
+	if (combinedFrames.length === 0) {
+		for (let i = 0; i < 4; i++) {
+			combinedFrames.push({
+				key: 'squirrel_idle_anim',
+				frame: i
+			});
+		}
+	}
+	
+	// Create the combined animation
+	gameScene.anims.create({
+		key: animationKey,
+		frames: combinedFrames,
+		frameRate: 0.65,
+		repeat: -1
+	});
+	
+	console.log(`Created combined animation with ${combinedFrames.length} frames:`, combinedFrames.map(f => `${f.key}:${f.frame}`));
+	
+	// Play the combined animation
+	pet.stop();
+	pet.setTexture('squirrel_idle_anim'); // Use any sprite sheet as base texture
+	pet.play(animationKey);
 }
 
 function changePetState(newState) {
