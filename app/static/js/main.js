@@ -68,7 +68,8 @@ const PET_SPRITES = {
 		happy: 'squirrel_happy',
 		hungry: 'squirrel_hungry',
 		sleeping: 'squirrel_sleeping',
-		sad: 'squirrel_sad'
+		sad: 'squirrel_sad',
+		dirty: 'squirrel_dirty'
 	}
 };
 
@@ -521,6 +522,12 @@ function preload() {
 		frameHeight: 256
 	});
 	
+	// Load squirrel dirty animation sprite sheet (4 frames, 256x256 each)
+	this.load.spritesheet('squirrel_dirty_anim', '/static/sprites/sheets/squirrel_dirty_sprite.png', {
+		frameWidth: 256,
+		frameHeight: 256
+	});
+	
 	// Load food images
 	this.load.image('mushroom', '/static/img/mushroom.png');
 	this.load.image('blueberries', '/static/img/blueberry.png');
@@ -590,6 +597,14 @@ function create() {
 		this.anims.create({
 			key: 'squirrel_sleeping_animation',
 			frames: this.anims.generateFrameNumbers('squirrel_sleeping_anim', { start: 0, end: 3 }),
+			frameRate: 0.65,
+			repeat: -1 // Loop forever
+		});
+		
+		// Create dirty animation (4 frames at 2fps = 2 seconds total)
+		this.anims.create({
+			key: 'squirrel_dirty_animation',
+			frames: this.anims.generateFrameNumbers('squirrel_dirty_anim', { start: 0, end: 3 }),
 			frameRate: 0.65,
 			repeat: -1 // Loop forever
 		});
@@ -1676,7 +1691,7 @@ function updatePetAppearance(stats) {
 	// Determine pet state based on stats
 	let newState = 'idle';
 	
-	// Priority order: Energy > Hunger > Joy > Happy > Idle
+	// Priority order: Energy > Hunger > Cleanliness > Joy > Happy > Idle
 	
 	// 1. Check if energy is lower than 30 (sleeping takes highest priority)
 	if (stats.energy < 30) {
@@ -1686,15 +1701,19 @@ function updatePetAppearance(stats) {
 	else if (stats.hunger < 50) {
 		newState = 'hungry';
 	}
-	// 3. Check if joy (happiness) is lower than 40 (but energy >= 30 and hunger >= 50)
+	// 3. Check if cleanliness is lower than 40 (but energy >= 30 and hunger >= 50)
+	else if (stats.cleanliness < 40) {
+		newState = 'dirty';
+	}
+	// 4. Check if joy (happiness) is lower than 40 (but energy >= 30, hunger >= 50, and cleanliness >= 40)
 	else if (stats.happiness < 40) {
 		newState = 'sad';
 	}
-	// 4. Check if ALL stats are 80 or higher (happy state)
+	// 5. Check if ALL stats are 80 or higher (happy state)
 	else if (stats.hunger >= 80 && stats.happiness >= 80 && stats.cleanliness >= 80 && stats.energy >= 80) {
 		newState = 'happy';
 	}
-	// 5. Default to idle state
+	// 6. Default to idle state
 	else {
 		newState = 'idle';
 	}
@@ -1750,6 +1769,18 @@ function changePetState(newState) {
 		pet.play('squirrel_sleeping_animation');
 		
 		console.log('Animated sleeping state activated');
+	} else if (newState === 'dirty') {
+		// For dirty state, use the animated sprite
+		console.log('Switching to animated dirty state');
+		
+		// Stop any current animation
+		pet.stop();
+		
+		// Set to animated sprite texture and start animation
+		pet.setTexture('squirrel_dirty_anim');
+		pet.play('squirrel_dirty_animation');
+		
+		console.log('Animated dirty state activated');
 	} else {
 		// For other states, use static sprites
 		const spriteKey = PET_SPRITES[petType][newState];
