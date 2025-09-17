@@ -303,7 +303,8 @@ def pet_action():
 		food_values = {
 			"mushroom": 10,
 			"blueberries": 15,
-			"tree_seed": 5
+			"tree_seed": 5,
+			"acorn": 25
 		}
 		
 		if food_type not in food_values:
@@ -556,6 +557,7 @@ def get_pet_stats():
 			"tree_seed": current_user.inventory.tree_seed,
 			"blueberries": current_user.inventory.blueberries,
 			"mushroom": current_user.inventory.mushroom,
+			"acorn": current_user.inventory.acorn,
 			"coins": current_user.inventory.coins
 		}
 	
@@ -595,7 +597,7 @@ def shop_purchase():
 	food_type = request.json.get("food_type")
 	quantity = request.json.get("quantity", 1)
 
-	if not food_type or food_type not in ["tree_seed", "blueberries", "mushroom"]:
+	if not food_type or food_type not in ["tree_seed", "blueberries", "mushroom", "acorn"]:
 		return jsonify({"error": "Invalid food type"}), 400
 
 	if quantity < 1 or quantity > 100:

@@ -85,7 +85,8 @@ const PET_COLORS = {
 let currentInventory = {
 	tree_seed: 0,
 	blueberries: 0,
-	mushroom: 0
+	mushroom: 0,
+	acorn: 0
 };
 
 // Menu Manager Class - Consolidates all menu logic
@@ -539,6 +540,7 @@ function preload() {
 	this.load.image('mushroom', '/static/img/mushroom.png');
 	this.load.image('blueberries', '/static/img/blueberry.png');
 	this.load.image('tree_seed', '/static/img/tree_seed.png');
+	this.load.image('acorn', '/static/img/acorn.png');
 	
 	// Load sleep images
 	this.load.image('squirrel_sofa', '/static/img/squirrel_sofa.png');
