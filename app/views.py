@@ -54,6 +54,7 @@ def handle_feed_action(pet, request_data):
 			"tree_seed": current_user.inventory.tree_seed,
 			"blueberries": current_user.inventory.blueberries,
 			"mushroom": current_user.inventory.mushroom,
+			"acorn": current_user.inventory.acorn,
 			"coins": current_user.inventory.coins
 		},
 		"stats": {
@@ -343,6 +344,7 @@ def pet_action():
 				"tree_seed": current_user.inventory.tree_seed,
 				"blueberries": current_user.inventory.blueberries,
 				"mushroom": current_user.inventory.mushroom,
+				"acorn": current_user.inventory.acorn,
 				"coins": current_user.inventory.coins
 			},
 			"stats": {

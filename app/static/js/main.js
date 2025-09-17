@@ -3242,6 +3242,14 @@ document.addEventListener('DOMContentLoaded', function() {
 		labyrinthGameState.gameActive = true;
 		initializeLabyrinthGame();
 	});
+	
+	// Exit button for labyrinth
+	document.getElementById('labyrinth-exit').addEventListener('click', function() {
+		labyrinthGame.style.display = 'none';
+		labyrinthGameState.gameActive = false;
+		document.removeEventListener('keydown', handleLabyrinthKeydown);
+		document.getElementById('labyrinth-result').style.display = 'none';
+	});
 
 	// Make updateMinigameButtonFromStats available globally
 	window.updateMinigameButtonFromStats = updateMinigameButtonFromStats;

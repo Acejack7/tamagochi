@@ -442,7 +442,7 @@ main {
 	flex-direction: column;
 	gap: 20px;
 	width: 100%;
-	max-width: 1400px;
+	max-width: 1200px;
 }
 
 .game-layout {
@@ -1904,9 +1904,32 @@ bd.notification .notification-close:hover {
 }
 
 /* Labyrinth Game Styles */
-.labyrinth-content {
-	max-width: 600px;
-	width: 90vw;
+.minigame-game-content.labyrinth-content {
+	max-width: 900px;
+	width: 95vw;
+}
+
+.labyrinth-layout {
+	display: flex;
+	gap: 24px;
+	align-items: flex-start;
+}
+
+.labyrinth-layout .game-area {
+	flex: 0 0 auto;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+}
+
+.labyrinth-sidebar {
+	flex: 1;
+	min-width: 300px;
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-start;
+	padding-left: 20px;
 }
 
 .game-stats {
@@ -1943,11 +1966,16 @@ bd.notification .notification-close:hover {
 
 #labyrinth-canvas {
 	display: block;
-	margin: 0 auto;
+	margin: 8px auto 0;
 	border: 2px solid #333;
 	border-radius: 8px;
 	background: #f0f8ff;
 	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.labyrinth-layout .game-controls {
+	text-align: center;
+	margin-top: 4px;
 }
 
 .game-controls {
@@ -1961,16 +1989,56 @@ bd.notification .notification-close:hover {
 	font-style: italic;
 }
 
+.result-buttons {
+	display: flex;
+	gap: 12px;
+	margin-top: 16px;
+	justify-content: center;
+}
+
+.exit-btn {
+	background: #dc3545;
+	color: white;
+	border: none;
+	padding: 12px 24px;
+	border-radius: 8px;
+	cursor: pointer;
+	font-size: 16px;
+	font-weight: 600;
+	transition: all 0.3s ease;
+}
+
+.exit-btn:hover {
+	background: #c82333;
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
 /* Responsive canvas */
 @media (max-width: 768px) {
-	.labyrinth-content {
+	.minigame-game-content.labyrinth-content {
 		width: 95vw;
+	}
+	
+	.labyrinth-layout {
+		flex-direction: column;
+		gap: 16px;
+	}
+	
+	.labyrinth-sidebar {
+		min-width: auto;
+		padding-left: 0;
 	}
 	
 	#labyrinth-canvas {
 		width: 100%;
 		height: auto;
 		max-width: 360px;
+	}
+	
+	.result-buttons {
+		flex-direction: column;
+		gap: 8px;
 	}
 	
 	.game-stats {

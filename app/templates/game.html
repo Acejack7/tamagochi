@@ -134,23 +134,30 @@
 						<h3>🏃 Labyrinth</h3>
 						<button class="close-btn" id="close-labyrinth">&times;</button>
 					</div>
-					<div class="game-area">
-						<div class="game-instruction">Use arrow keys to move your squirrel and collect all the food!</div>
-						<div class="game-stats">
-							<div class="collected-items">
-								<span class="item-count" id="blueberry-count">🫐 × 0</span>
-								<span class="item-count" id="acorn-count">🌰 × 0</span>
+					<div class="labyrinth-layout">
+						<div class="game-area">
+							<div class="game-instruction">Move your squirrel and collect all the food!</div>
+							<div class="game-stats">
+								<div class="collected-items">
+									<span class="item-count" id="blueberry-count">🫐 × 0</span>
+									<span class="item-count" id="acorn-count">🌰 × 0</span>
+								</div>
+								<div class="remaining-items" id="remaining-items">Items left: 4</div>
 							</div>
-							<div class="remaining-items" id="remaining-items">Items left: 4</div>
+							<div class="game-controls">
+								<div class="control-hint">Use ↑ ↓ ← → arrow keys to move</div>
+							</div>
+							<canvas id="labyrinth-canvas" width="480" height="480"></canvas>
 						</div>
-						<canvas id="labyrinth-canvas" width="480" height="480"></canvas>
-						<div class="game-controls">
-							<div class="control-hint">Use ↑ ↓ ← → arrow keys to move</div>
-						</div>
-						<div class="game-result" id="labyrinth-result" style="display: none;">
-							<div class="result-message" id="labyrinth-message"></div>
-							<div class="result-reward" id="labyrinth-reward"></div>
-							<button class="play-again-btn" id="labyrinth-play-again">Play Again</button>
+						<div class="labyrinth-sidebar">
+							<div class="game-result" id="labyrinth-result" style="display: none;">
+								<div class="result-message" id="labyrinth-message"></div>
+								<div class="result-reward" id="labyrinth-reward"></div>
+								<div class="result-buttons">
+									<button class="play-again-btn" id="labyrinth-play-again">Play Again</button>
+									<button class="exit-btn" id="labyrinth-exit">Exit</button>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
