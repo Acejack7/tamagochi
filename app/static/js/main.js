@@ -268,13 +268,16 @@ class AnimationManager {
 			return;
 		}
 
-		console.log(`${config.emoji} SHOWING ${animationType.toUpperCase()} OVERLAY: ${subType} until ${endTime}`);
+		// Get dynamic emoji for play animations
+		const displayEmoji = animationType === 'play' ? this.getPlayEmoji(subType) : config.emoji;
+
+		console.log(`${displayEmoji} SHOWING ${animationType.toUpperCase()} OVERLAY: ${subType} until ${endTime}`);
 		console.log(`🕐 Current time: ${new Date()}`);
 		console.log(`📍 Called from:`, new Error().stack.split('\n')[2]);
 		
 		// Hide menu during animation
 		menuManager.hideMenu(config.menuType);
-		console.log(`${config.emoji} ${config.menuType} menu hidden during animation`);
+		console.log(`${displayEmoji} ${config.menuType} menu hidden during animation`);
 		
 		// Set state
 		window[config.stateVar] = true;
@@ -290,6 +293,15 @@ class AnimationManager {
 		const title = document.getElementById(config.titleId);
 		if (overlay && title) {
 			title.textContent = this.getTitleText(animationType, subType);
+			
+			// Update emoji for play animations
+			if (animationType === 'play') {
+				const emojiElement = overlay.querySelector('.play-emoji');
+				if (emojiElement) {
+					emojiElement.textContent = displayEmoji;
+				}
+			}
+			
 			overlay.style.display = 'flex';
 			console.log(`✅ Main ${animationType} overlay shown`);
 		} else {
@@ -323,6 +335,14 @@ class AnimationManager {
 		// Hide overlay
 		const overlay = document.getElementById(config.overlayId);
 		if (overlay) {
+			// Reset emoji for play animations
+			if (animationType === 'play') {
+				const emojiElement = overlay.querySelector('.play-emoji');
+				if (emojiElement) {
+					emojiElement.textContent = config.emoji; // Reset to default 🎮
+				}
+			}
+			
 			overlay.style.display = 'none';
 			console.log(`✅ Main ${animationType} overlay hidden`);
 		}
@@ -411,6 +431,14 @@ class AnimationManager {
 				  subType === 'shower' ? 'Pet is taking a shower...' : 'Pet is taking a bath...'
 		};
 		return titles[animationType] || `Pet is ${animationType}ing...`;
+	}
+
+	getPlayEmoji(playType) {
+		const playEmojis = {
+			'play_with_ball': '🎾',
+			'spin_in_wheel': '🎡'
+		};
+		return playEmojis[playType] || '🎮';
 	}
 }
 
@@ -3451,11 +3479,13 @@ document.addEventListener('DOMContentLoaded', function() {
 	let labyrinthGameState = {
 		player: { x: 1, y: 1 },
 		foods: [],
+		exit: { x: 0, y: 0 },
 		collected: { blueberry: 0, acorn: 0 },
-		gameSize: 15,
-		cellSize: 32,
+		gameSize: 21, // Odd number for proper maze generation
+		cellSize: 23, // Smaller cells to fit larger maze
 		gameActive: false,
-		images: {}
+		images: {},
+		maze: [] // 2D array representing the maze
 	};
 	
 	// Start Labyrinth game
@@ -3508,33 +3538,130 @@ document.addEventListener('DOMContentLoaded', function() {
 		});
 	}
 	
+	// Maze generation using recursive backtracking algorithm
+	function generateMaze(size) {
+		// Initialize maze with all walls (0 = wall, 1 = path)
+		const maze = [];
+		for (let y = 0; y < size; y++) {
+			maze[y] = [];
+			for (let x = 0; x < size; x++) {
+				maze[y][x] = 0; // Start with all walls
+			}
+		}
+		
+		// Stack for backtracking
+		const stack = [];
+		
+		// Start at position (1, 1) - always odd coordinates for maze generation
+		const start = { x: 1, y: 1 };
+		maze[start.y][start.x] = 1; // Mark as path
+		stack.push(start);
+		
+		// Directions: up, right, down, left (2 steps to skip walls)
+		const directions = [
+			{ x: 0, y: -2 }, // up
+			{ x: 2, y: 0 },  // right
+			{ x: 0, y: 2 },  // down
+			{ x: -2, y: 0 }  // left
+		];
+		
+		while (stack.length > 0) {
+			const current = stack[stack.length - 1];
+			
+			// Find unvisited neighbors
+			const unvisitedNeighbors = [];
+			
+			for (let dir of directions) {
+				const newX = current.x + dir.x;
+				const newY = current.y + dir.y;
+				
+				// Check bounds and if cell is unvisited (wall)
+				if (newX > 0 && newX < size - 1 && 
+					newY > 0 && newY < size - 1 && 
+					maze[newY][newX] === 0) {
+					unvisitedNeighbors.push({ x: newX, y: newY, dir: dir });
+				}
+			}
+			
+			if (unvisitedNeighbors.length > 0) {
+				// Choose random unvisited neighbor
+				const randomNeighbor = unvisitedNeighbors[Math.floor(Math.random() * unvisitedNeighbors.length)];
+				
+				// Remove wall between current and chosen neighbor
+				const wallX = current.x + randomNeighbor.dir.x / 2;
+				const wallY = current.y + randomNeighbor.dir.y / 2;
+				maze[wallY][wallX] = 1;
+				
+				// Mark neighbor as visited
+				maze[randomNeighbor.y][randomNeighbor.x] = 1;
+				
+				// Add neighbor to stack
+				stack.push({ x: randomNeighbor.x, y: randomNeighbor.y });
+			} else {
+				// No unvisited neighbors, backtrack
+				stack.pop();
+			}
+		}
+		
+		return maze;
+	}
+	
+	// Find all accessible cells in the maze
+	function getAccessibleCells(maze) {
+		const accessibleCells = [];
+		for (let y = 0; y < maze.length; y++) {
+			for (let x = 0; x < maze[y].length; x++) {
+				if (maze[y][x] === 1) { // Path cell
+					accessibleCells.push({ x, y });
+				}
+			}
+		}
+		return accessibleCells;
+	}
+	
 	// Initialize game board
 	function initializeLabyrinthGame() {
 		const gameSize = labyrinthGameState.gameSize;
 		
-		// Reset player position
+		// Generate maze
+		labyrinthGameState.maze = generateMaze(gameSize);
+		
+		// Get all accessible cells
+		const accessibleCells = getAccessibleCells(labyrinthGameState.maze);
+		
+		// Set player starting position (always at 1,1)
 		labyrinthGameState.player = { x: 1, y: 1 };
 		
-		// Generate food positions (avoiding player start position)
-		labyrinthGameState.foods = [];
+		// Find furthest accessible cell from start for exit
+		let maxDistance = 0;
+		let exitPosition = { x: 1, y: 1 };
 		
-		// Add 2 blueberries and 2 acorns at random positions
+		for (let cell of accessibleCells) {
+			const distance = Math.abs(cell.x - 1) + Math.abs(cell.y - 1); // Manhattan distance
+			if (distance > maxDistance) {
+				maxDistance = distance;
+				exitPosition = cell;
+			}
+		}
+		labyrinthGameState.exit = exitPosition;
+		
+		// Generate food positions in accessible cells (avoiding player and exit)
+		labyrinthGameState.foods = [];
+		const availableCells = accessibleCells.filter(cell => 
+			!(cell.x === labyrinthGameState.player.x && cell.y === labyrinthGameState.player.y) &&
+			!(cell.x === labyrinthGameState.exit.x && cell.y === labyrinthGameState.exit.y)
+		);
+		
+		// Add 2 blueberries and 2 acorns at random accessible positions
 		const foodTypes = ['blueberry', 'blueberry', 'acorn', 'acorn'];
 		
 		foodTypes.forEach(type => {
-			let position;
-			do {
-				position = {
-					x: Math.floor(Math.random() * (gameSize - 2)) + 1,
-					y: Math.floor(Math.random() * (gameSize - 2)) + 1,
-					type: type
-				};
-			} while (
-				(position.x === labyrinthGameState.player.x && position.y === labyrinthGameState.player.y) ||
-				labyrinthGameState.foods.some(food => food.x === position.x && food.y === position.y)
-			);
-			
-			labyrinthGameState.foods.push(position);
+			if (availableCells.length > 0) {
+				const randomIndex = Math.floor(Math.random() * availableCells.length);
+				const position = availableCells.splice(randomIndex, 1)[0]; // Remove to avoid duplicates
+				position.type = type;
+				labyrinthGameState.foods.push(position);
+			}
 		});
 		
 		// Update UI
@@ -3552,48 +3679,56 @@ document.addEventListener('DOMContentLoaded', function() {
 		if (!labyrinthGameState.gameActive) return;
 		
 		const player = labyrinthGameState.player;
+		const maze = labyrinthGameState.maze;
 		const gameSize = labyrinthGameState.gameSize;
 		let newX = player.x;
 		let newY = player.y;
 		
 		switch(event.key) {
 			case 'ArrowUp':
-				newY = Math.max(1, player.y - 1);
+				newY = player.y - 1;
 				event.preventDefault();
 				break;
 			case 'ArrowDown':
-				newY = Math.min(gameSize - 2, player.y + 1);
+				newY = player.y + 1;
 				event.preventDefault();
 				break;
 			case 'ArrowLeft':
-				newX = Math.max(1, player.x - 1);
+				newX = player.x - 1;
 				event.preventDefault();
 				break;
 			case 'ArrowRight':
-				newX = Math.min(gameSize - 2, player.x + 1);
+				newX = player.x + 1;
 				event.preventDefault();
 				break;
 			default:
 				return;
 		}
 		
-		// Update player position
-		labyrinthGameState.player.x = newX;
-		labyrinthGameState.player.y = newY;
-		
-		// Check for food collection
-		checkFoodCollection();
-		
-		// Redraw game
-		drawLabyrinthGame();
-		
-		// Update UI
-		updateLabyrinthUI();
-		
-		// Check win condition
-		if (labyrinthGameState.foods.length === 0) {
-			completeLabyrinthGame();
+		// Check boundaries and wall collision
+		if (newX >= 0 && newX < gameSize && 
+			newY >= 0 && newY < gameSize && 
+			maze[newY][newX] === 1) { // 1 = path, 0 = wall
+			
+			// Update player position
+			labyrinthGameState.player.x = newX;
+			labyrinthGameState.player.y = newY;
+			
+			// Check for food collection
+			checkFoodCollection();
+			
+			// Check if player reached exit
+			if (newX === labyrinthGameState.exit.x && newY === labyrinthGameState.exit.y) {
+				checkExitCondition();
+			}
+			
+			// Redraw game
+			drawLabyrinthGame();
+			
+			// Update UI
+			updateLabyrinthUI();
 		}
+		// If move is invalid (wall or boundary), do nothing
 	}
 	
 	// Check if player collected any food
@@ -3610,6 +3745,25 @@ document.addEventListener('DOMContentLoaded', function() {
 		}
 	}
 	
+	// Check if player can exit (all food collected)
+	function checkExitCondition() {
+		if (labyrinthGameState.foods.length === 0) {
+			// All food collected, player can exit
+			completeLabyrinthGame();
+		} else {
+			// Show message that more food needs to be collected
+			const remaining = labyrinthGameState.foods.length;
+			document.getElementById('remaining-items').textContent = `Collect all ${remaining} items before exiting!`;
+			document.getElementById('remaining-items').style.color = '#ff6b6b';
+			
+			// Reset color after 2 seconds
+			setTimeout(() => {
+				document.getElementById('remaining-items').style.color = '';
+				updateLabyrinthUI();
+			}, 2000);
+		}
+	}
+	
 	// Update UI elements
 	function updateLabyrinthUI() {
 		document.getElementById('blueberry-count').textContent = `🫐 × ${labyrinthGameState.collected.blueberry}`;
@@ -3622,49 +3776,59 @@ document.addEventListener('DOMContentLoaded', function() {
 		const ctx = labyrinthCtx;
 		const cellSize = labyrinthGameState.cellSize;
 		const gameSize = labyrinthGameState.gameSize;
+		const maze = labyrinthGameState.maze;
 		
 		// Clear canvas
 		ctx.clearRect(0, 0, labyrinthCanvas.width, labyrinthCanvas.height);
 		
-		// Draw grid background
-		ctx.fillStyle = '#f0f8ff';
-		ctx.fillRect(0, 0, labyrinthCanvas.width, labyrinthCanvas.height);
-		
-		// Draw borders
-		ctx.strokeStyle = '#333';
-		ctx.lineWidth = 2;
-		ctx.strokeRect(0, 0, gameSize * cellSize, gameSize * cellSize);
-		
-		// Draw grid lines
-		ctx.strokeStyle = '#ddd';
-		ctx.lineWidth = 1;
-		for (let i = 1; i < gameSize; i++) {
-			// Vertical lines
-			ctx.beginPath();
-			ctx.moveTo(i * cellSize, 0);
-			ctx.lineTo(i * cellSize, gameSize * cellSize);
-			ctx.stroke();
-			
-			// Horizontal lines
-			ctx.beginPath();
-			ctx.moveTo(0, i * cellSize);
-			ctx.lineTo(gameSize * cellSize, i * cellSize);
-			ctx.stroke();
+		// Draw maze
+		for (let y = 0; y < gameSize; y++) {
+			for (let x = 0; x < gameSize; x++) {
+				const cellX = x * cellSize;
+				const cellY = y * cellSize;
+				
+				if (maze[y][x] === 1) {
+					// Path - light color
+					ctx.fillStyle = '#f0f8ff';
+				} else {
+					// Wall - dark color
+					ctx.fillStyle = '#2c3e50';
+				}
+				
+				ctx.fillRect(cellX, cellY, cellSize, cellSize);
+			}
 		}
+		
+		// Draw exit (bright green square)
+		const exit = labyrinthGameState.exit;
+		ctx.fillStyle = '#27ae60';
+		ctx.fillRect(exit.x * cellSize + 2, exit.y * cellSize + 2, cellSize - 4, cellSize - 4);
+		
+		// Draw exit symbol
+		ctx.fillStyle = 'white';
+		ctx.font = `${cellSize * 0.6}px Arial`;
+		ctx.textAlign = 'center';
+		ctx.textBaseline = 'middle';
+		ctx.fillText('🚪', exit.x * cellSize + cellSize/2, exit.y * cellSize + cellSize/2);
+		
+		// Draw borders around the entire maze
+		ctx.strokeStyle = '#333';
+		ctx.lineWidth = 3;
+		ctx.strokeRect(0, 0, gameSize * cellSize, gameSize * cellSize);
 		
 		// Draw food items
 		labyrinthGameState.foods.forEach(food => {
 			const img = labyrinthGameState.images[food.type];
 			if (img) {
-				ctx.drawImage(img, food.x * cellSize, food.y * cellSize, cellSize, cellSize);
+				ctx.drawImage(img, food.x * cellSize + 1, food.y * cellSize + 1, cellSize - 2, cellSize - 2);
 			}
 		});
 		
-		// Draw player (squirrel)
+		// Draw player (squirrel) with slight padding
 		const player = labyrinthGameState.player;
 		const squirrelImg = labyrinthGameState.images.squirrel;
 		if (squirrelImg) {
-			ctx.drawImage(squirrelImg, player.x * cellSize, player.y * cellSize, cellSize, cellSize);
+			ctx.drawImage(squirrelImg, player.x * cellSize + 1, player.y * cellSize + 1, cellSize - 2, cellSize - 2);
 		}
 	}
 	
@@ -3679,7 +3843,7 @@ document.addEventListener('DOMContentLoaded', function() {
 		sendLabyrinthResults();
 		
 		// Show completion message
-		showLabyrinthResult(`Congratulations! You collected all ${totalCollected} items!`, true);
+		showLabyrinthResult(`Congratulations! You collected all ${totalCollected} items and escaped the maze!`, true);
 	}
 	
 	// Send results to server
