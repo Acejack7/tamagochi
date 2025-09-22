@@ -614,15 +614,9 @@ async function handleUnifiedAction(actionType, actionSubType) {
 		} else {
 			showActionFeedback(config.feedbackPrefix, false, data.error);
 		}
-	} catch (error) {
+	} 	catch (error) {
 		console.error(`${actionType} action failed:`, error);
 		showActionFeedback(config.feedbackPrefix, false, 'Network error');
-	} finally {
-		// Re-enable button
-		if (button) {
-			button.disabled = false;
-			button.style.opacity = '1';
-		}
 	}
 }
 
@@ -1115,15 +1109,9 @@ async function handleAction(action) {
 		} else {
 			showActionFeedback(action, false, data.error);
 		}
-	} catch (error) {
+	} 	catch (error) {
 		console.error('Action failed:', error);
 		showActionFeedback(action, false, 'Network error');
-	} finally {
-		// Re-enable button
-		if (button) {
-			button.disabled = false;
-			button.style.opacity = '1';
-		}
 	}
 }
 
@@ -1196,15 +1184,9 @@ async function handleFeedAction(foodType) {
 		} else {
 			showActionFeedback('Feed', false, data.error);
 		}
-	} catch (error) {
+	} 	catch (error) {
 		console.error('Feed action failed:', error);
 		showActionFeedback('Feed', false, 'Network error');
-	} finally {
-		// Re-enable button
-		if (button) {
-			button.disabled = false;
-			button.style.opacity = '1';
-		}
 	}
 }
 
@@ -1291,15 +1273,9 @@ async function handleSleepAction(sleepType) {
 		} else {
 			showActionFeedback('Sleep', false, data.error);
 		}
-	} catch (error) {
+	} 	catch (error) {
 		console.error('Sleep action failed:', error);
 		showActionFeedback('Sleep', false, 'Network error');
-	} finally {
-		// Re-enable button
-		if (button) {
-			button.disabled = false;
-			button.style.opacity = '1';
-		}
 	}
 }
 
@@ -1386,15 +1362,9 @@ async function handleWashAction(washType) {
 		} else {
 			showActionFeedback('Wash', false, data.error);
 		}
-	} catch (error) {
+	} 	catch (error) {
 		console.error('Wash action failed:', error);
 		showActionFeedback('Wash', false, 'Network error');
-	} finally {
-		// Re-enable button
-		if (button) {
-			button.disabled = false;
-			button.style.opacity = '1';
-		}
 	}
 }
 
@@ -1466,15 +1436,9 @@ async function handlePlayAction(playType) {
 		} else {
 			showActionFeedback('Play', false, data.error);
 		}
-	} catch (error) {
+	} 	catch (error) {
 		console.error('Play action failed:', error);
 		showActionFeedback('Play', false, 'Network error');
-	} finally {
-		// Re-enable button
-		if (button) {
-			button.disabled = false;
-			button.style.opacity = '1';
-		}
 	}
 }
 
@@ -1757,6 +1721,14 @@ function updateStatsDisplay(stats) {
 }
 
 function updateButtonStates(stats) {
+	// Don't update button states if any animation is active
+	if (isFeeding || isPlaying || isWashing || isSleeping) {
+		console.log('🚫 Skipping button state update - animation is active:', {
+			isFeeding, isPlaying, isWashing, isSleeping
+		});
+		return;
+	}
+	
 	// Define which action corresponds to which stat and their thresholds
 	const actionToStat = {
 		'feed': { stat: 'hunger', threshold: 80 },
@@ -2942,17 +2914,29 @@ function updatePlayButtonStates() {
 }
 
 function disableAllActions(disabled) {
+	console.log(`🔧 disableAllActions(${disabled}) called from:`, new Error().stack.split('\n')[2]);
+	
 	const actionButtons = document.querySelectorAll('.action-btn');
 	const shopButton = document.getElementById('shop-btn');
 	const storageButton = document.getElementById('storage-btn');
 	const minigameButton = document.getElementById('minigame-btn');
 	const testButtons = document.querySelectorAll('.test-btn');
 
+	console.log(`🎯 Found ${actionButtons.length} action buttons:`, Array.from(actionButtons).map(btn => `${btn.textContent} (${btn.dataset.action})`));
+
 	// Disable all action buttons (feed, play, wash, sleep) during animations
 	actionButtons.forEach(button => {
+		console.log(`🔧 ${disabled ? 'Disabling' : 'Enabling'} button: ${button.textContent} (${button.dataset.action})`);
 		button.disabled = disabled;
-		button.style.opacity = disabled ? '0.5' : '1';
+		
 		if (disabled) {
+			// Add a class for forced disabled styling
+			button.classList.add('action-disabled-override');
+			button.style.opacity = '0.5';
+			button.style.cursor = 'not-allowed';
+			button.style.background = '#6a737d';
+			button.style.borderColor = '#6a737d';
+			
 			if (isSleeping) {
 				button.title = 'Pet is sleeping - actions disabled';
 			} else if (isWashing) {
@@ -2962,6 +2946,13 @@ function disableAllActions(disabled) {
 			} else if (isPlaying) {
 				button.title = 'Pet is playing - actions disabled';
 			}
+		} else {
+			// Remove the override class and reset styles
+			button.classList.remove('action-disabled-override');
+			button.style.opacity = '1';
+			button.style.cursor = 'pointer';
+			button.style.background = '';
+			button.style.borderColor = '';
 		}
 	});
 
