@@ -13,7 +13,6 @@ const config = {
 };
 
 let pet;
-let petBorder = null; // Border around pet for debugging
 let petType = 'hedgehog'; // default, will be updated from server
 let gameScene;
 let currentPetState = 'idle';
@@ -27,27 +26,6 @@ let isSleeping = false;
 window.isSleeping = isSleeping;
 let autoUpdateTimer = null;
 
-// Test function to force sleep visibility
-function testSleep() {
-	console.log('🧪 TESTING SLEEP - forcing sleep overlay');
-	const now = new Date();
-	const endTime = new Date(now.getTime() + 60000); // 1 minute from now
-	
-	// Force the sleeping state
-	isSleeping = false;
-	window.isSleeping = isSleeping; // Reset first
-	console.log('🔧 Force calling showSleepOverlay...');
-	showSleepOverlay('nap', endTime.toISOString());
-	
-	// Verify it's set
-	setTimeout(() => {
-		console.log('🔍 Sleep state after 1 second:', {
-			isSleeping,
-			sleepEndTime,
-			simpleBarVisible: document.getElementById('simple-sleep-bar')?.style.display
-		});
-	}, 1000);
-}
 
 // Pet sprite mappings
 const PET_SPRITES = {
@@ -374,12 +352,17 @@ class AnimationManager {
 		const config = this.animations[animationType];
 		if (!config || !window[config.endTimeVar]) return;
 
-		const now = new Date();
-		const timeRemaining = window[config.endTimeVar] - now;
 		
-		console.log(`🕐 ${animationType} check: now=${now.toISOString()}, end=${window[config.endTimeVar].toISOString()}, remaining=${timeRemaining}ms`);
+		const timerConfig = {
+			totalDuration: this.getDuration(animationType, null),
+			progressFillId: config.progressFillId,
+			progressTextId: config.progressTextId,
+			timerId: config.timerId
+		};
 		
-		if (timeRemaining <= 0) {
+		const isRunning = TimerUtility.updateProgress(window[config.endTimeVar], timerConfig);
+		
+		if (!isRunning) {
 			// Animation finished
 			console.log(`⏰ ${animationType} timer finished - hiding overlay`);
 			this.hideOverlay(animationType);
@@ -388,30 +371,6 @@ class AnimationManager {
 				console.log(`${config.emoji} Showing ${config.menuType} menu after animation completion`);
 				menuManager.showMenu(config.menuType);
 			}, 100);
-			return;
-		}
-		
-		// Calculate progress
-		const duration = this.getDuration(animationType, null);
-		const elapsedMs = duration - timeRemaining;
-		const progressPercent = Math.min(100, Math.max(0, (elapsedMs / duration) * 100));
-		
-		// Update progress bar
-		const progressFill = document.getElementById(config.progressFillId);
-		const progressText = document.getElementById(config.progressTextId);
-		if (progressFill && progressText) {
-			progressFill.style.width = `${progressPercent}%`;
-			progressText.textContent = `${Math.round(progressPercent)}%`;
-		}
-		
-		// Update timer
-		const minutes = Math.floor(timeRemaining / 60000);
-		const seconds = Math.floor((timeRemaining % 60000) / 1000);
-		const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-		
-		const timerElement = document.getElementById(config.timerId);
-		if (timerElement) {
-			timerElement.textContent = `Time remaining: ${timeString}`;
 		}
 	}
 
@@ -503,6 +462,65 @@ class DOMCache {
 
 // Initialize DOM cache
 const domCache = new DOMCache();
+
+// Unified Timer Utility - Common logic for all progress timers
+class TimerUtility {
+	static updateProgress(endTime, config) {
+		if (!endTime) return false;
+		
+		const now = new Date();
+		const timeRemaining = endTime - now;
+		
+		if (timeRemaining <= 0) {
+			return false; // Timer finished
+		}
+		
+		// Calculate progress
+		const totalDurationMs = config.totalDuration;
+		const elapsedMs = totalDurationMs - timeRemaining;
+		const progressPercent = Math.min(100, Math.max(0, (elapsedMs / totalDurationMs) * 100));
+		
+		// Update progress bar
+		if (config.progressFillId) {
+			const progressFill = document.getElementById(config.progressFillId);
+			const progressText = document.getElementById(config.progressTextId);
+			if (progressFill && progressText) {
+				progressFill.style.width = `${progressPercent}%`;
+				progressText.textContent = `${Math.round(progressPercent)}%`;
+			}
+		}
+		
+		// Update timer display
+		if (config.timerId) {
+			const minutes = Math.floor(timeRemaining / 60000);
+			const seconds = Math.floor((timeRemaining % 60000) / 1000);
+			const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+			
+			const timerElement = document.getElementById(config.timerId);
+			if (timerElement) {
+				timerElement.textContent = `Time remaining: ${timeString}`;
+			}
+		}
+		
+		// Update simple progress bar (for sleep)
+		if (config.simpleProgressFillId) {
+			const simpleProgressFill = document.getElementById(config.simpleProgressFillId);
+			const simpleCountdown = document.getElementById(config.simpleCountdownId);
+			
+			if (simpleProgressFill) {
+				simpleProgressFill.style.width = `${progressPercent}%`;
+			}
+			if (simpleCountdown) {
+				const minutes = Math.floor(timeRemaining / 60000);
+				const seconds = Math.floor((timeRemaining % 60000) / 1000);
+				const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+				simpleCountdown.textContent = timeString;
+			}
+		}
+		
+		return true; // Timer still running
+	}
+}
 
 // Action configuration for unified handling
 const ACTION_CONFIG = {
@@ -619,16 +637,19 @@ async function handleUnifiedAction(actionType, actionSubType) {
 				updateInventoryDisplay(data.inventory);
 			}
 			
-			// Handle frontend-managed animations (feed, play, wash)
-			if (['feed', 'play', 'wash'].includes(actionType)) {
+			// Handle frontend-managed animations (feed, play only)
+			if (['feed', 'play'].includes(actionType)) {
 				const now = new Date();
 				const endTime = new Date(now.getTime() + animationManager.getDuration(actionType, actionSubType));
 				animationManager.showOverlay(actionType, actionSubType, endTime.toISOString());
 			}
 			
-			// Handle sleep overlay state (backend-managed)
+			// Handle backend-managed overlay states (sleep, wash)
 			if (actionType === 'sleep' && data.is_sleeping && data.sleep_end_time) {
 				showSleepOverlay(data.sleep_type, data.sleep_end_time);
+			}
+			if (actionType === 'wash' && data.is_washing && data.wash_end_time) {
+				showWashOverlay(data.wash_type, data.wash_end_time);
 			}
 			
 			// Update stats
@@ -800,8 +821,6 @@ function create() {
 		
 		console.log('Animated squirrel sprite created:', pet);
 		
-		// Add debug border around squirrel
-		createPetBorder(this);
 	} else {
 		// Fallback to colored circle for other pets
 		console.log('Creating fallback circle for:', petType);
@@ -814,8 +833,6 @@ function create() {
 		pet = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'pet');
 		pet.setScale(1);
 		
-		// Add debug border around pet
-		createPetBorder(this);
 	}
 
 	// No breathing animation for now - keeping pets at consistent scale
@@ -834,31 +851,6 @@ function update() {
 	// Reserved for future game loop logic
 }
 
-// Debug function to create border around pet
-function createPetBorder(scene) {
-	if (!pet) return;
-	
-	// Remove existing border if any
-	if (petBorder) {
-		petBorder.destroy();
-	}
-	
-	// Get pet bounds (approximate)
-	const petWidth = pet.displayWidth;
-	const petHeight = pet.displayHeight;
-	
-	// Create border graphics
-	petBorder = scene.add.graphics();
-	petBorder.lineStyle(3, 0x00ff00); // Green border, 3px thick
-	petBorder.strokeRect(
-		pet.x - petWidth / 2,
-		pet.y - petHeight / 2,
-		petWidth,
-		petHeight
-	);
-	
-	console.log(`Pet border created: ${petWidth}x${petHeight} pixels at position (${pet.x}, ${pet.y})`);
-}
 
 function setupAutoUpdates() {
 	// Update stats every minute (60000ms) - but pause during sleep
@@ -907,13 +899,6 @@ async function loadCurrentStats() {
 			}
 			
 			// Check if pet is sleeping and show overlay
-			console.log('📊 loadCurrentStats - checking sleep state:', {
-				backendSleeping: data.is_sleeping,
-				frontendSleeping: isSleeping,
-				sleepType: data.sleep_type,
-				sleepEndTime: data.sleep_end_time,
-				sleepStartTime: data.sleep_start_time
-			});
 			
 			if (data.is_sleeping && data.sleep_end_time) {
 				console.log('🔄 Backend says sleeping - showing overlay');
@@ -930,13 +915,6 @@ async function loadCurrentStats() {
 			}
 			
 			// Check if pet is washing and show overlay
-			console.log('📊 loadCurrentStats - checking wash state:', {
-				backendWashing: data.is_washing,
-				frontendWashing: isWashing,
-				washType: data.wash_type,
-				washEndTime: data.wash_end_time,
-				washStartTime: data.wash_start_time
-			});
 			
 			if (data.is_washing && data.wash_end_time) {
 				console.log('🔄 Backend says washing - showing overlay');
@@ -971,9 +949,7 @@ function setupActionButtons() {
 				menuManager.showMenu('wash');
 			} else if (action === 'play') {
 				menuManager.showMenu('play');
-			} else {
-				handleAction(action);
-			}
+		}
 		});
 	});
 	
@@ -1030,15 +1006,6 @@ function setupActionButtons() {
 	// Setup buy buttons
 	setupBuyButtons();
 	
-	// Setup test buttons
-	const testButtons = document.querySelectorAll('.test-btn');
-	
-	testButtons.forEach(button => {
-		button.addEventListener('click', function() {
-			const testType = this.dataset.test;
-			handleTestAction(testType);
-		});
-	});
 	
 	// Global menu closing functionality
 	document.addEventListener('click', function(e) {
@@ -1063,249 +1030,8 @@ function setupActionButtons() {
 	});
 }
 
-async function handleAction(action) {
-	// Get the button
-	const button = document.querySelector(`[data-action="${action}"]`);
-	
-	// Check if button is already disabled
-	if (button && button.disabled) {
-		console.log(`Action ${action} is disabled`);
-		return;
-	}
-	
-	// Immediately check if the action should be allowed based on current stats
-	const actionToStat = {
-		'feed': { stat: 'hunger', threshold: 80 },
-		'play': { stat: 'happiness', threshold: 75 }, 
-		'wash': { stat: 'cleanliness', threshold: 85 },
-		'sleep': { stat: 'energy', threshold: 50 }
-	};
-	
-	const statConfig = actionToStat[action];
-	if (statConfig) {
-		// Get current stat value from the UI
-		const statBars = document.querySelectorAll('.stat-bar');
-		let currentStatValue = null;
-		
-		for (const bar of statBars) {
-			const label = bar.querySelector('label');
-			if (label && label.textContent.toLowerCase() === statConfig.stat) {
-				const valueSpan = bar.querySelector('span');
-				if (valueSpan) {
-					currentStatValue = parseInt(valueSpan.textContent);
-					break;
-				}
-			}
-		}
-		
-		// Check if stat is above threshold
-		if (currentStatValue !== null && currentStatValue > statConfig.threshold) {
-			console.log(`Action ${action} blocked - ${statConfig.stat} is ${currentStatValue}% (threshold: ${statConfig.threshold}%)`);
-			// Update button state immediately
-			updateButtonStates({ [statConfig.stat]: currentStatValue });
-			return;
-		}
-	}
-	
-	// Disable button during action
-	if (button) {
-		button.disabled = true;
-		button.style.opacity = '0.6';
-	}
-	
-	try {
-		// Show action animation
-		playActionAnimation(action);
-		
-		// Send AJAX request
-		const response = await fetch('/api/pet/action', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({ action: action })
-		});
-		
-		const data = await response.json();
-		
-		if (data.success) {
-			// Update all stats and pet appearance
-			updateStatsDisplay(data.stats);
-			
-			// Show success feedback
-			showActionFeedback(action, true);
-		} else {
-			showActionFeedback(action, false, data.error);
-		}
-	} 	catch (error) {
-		console.error('Action failed:', error);
-		showActionFeedback(action, false, 'Network error');
-	}
-}
 
-async function handleFeedAction(foodType) {
-	// Hide the food menu
-	menuManager.hideMenu('feed');
-	
-	// Get the feed button
-	const button = document.querySelector('[data-action="feed"]');
-	
-	// Check if button is already disabled
-	if (button && button.disabled) {
-		console.log('Feed action is disabled');
-		return;
-	}
-	
-	// Check if hunger is above threshold
-	const statBars = document.querySelectorAll('.stat-bar');
-	let currentHunger = null;
-	
-	for (const bar of statBars) {
-		const label = bar.querySelector('label');
-		if (label && label.textContent.toLowerCase() === 'hunger') {
-			const valueSpan = bar.querySelector('span');
-			if (valueSpan) {
-				currentHunger = parseInt(valueSpan.textContent);
-				break;
-			}
-		}
-	}
-	
-	if (currentHunger !== null && currentHunger > 80) {
-		console.log(`Feed action blocked - hunger is ${currentHunger}% (threshold: 80%)`);
-		updateButtonStates({ hunger: currentHunger });
-		return;
-	}
-	
-	// Disable button during action
-	if (button) {
-		button.disabled = true;
-		button.style.opacity = '0.6';
-	}
-	
-	try {
-		// Show food image for 3 seconds
-		showFoodImage(foodType);
-		
-		// Send AJAX request
-		const response = await fetch('/api/pet/action', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({ action: 'feed', food_type: foodType })
-		});
-		
-		const data = await response.json();
-		
-		if (data.success) {
-			// Update all stats and pet appearance
-			updateStatsDisplay(data.stats);
-			
-			// Update inventory display
-			if (data.inventory) {
-				updateInventoryDisplay(data.inventory);
-			}
-			
-			// Show success feedback
-			showActionFeedback(`Fed ${foodType}`, true);
-		} else {
-			showActionFeedback('Feed', false, data.error);
-		}
-	} 	catch (error) {
-		console.error('Feed action failed:', error);
-		showActionFeedback('Feed', false, 'Network error');
-	}
-}
 
-async function handleSleepAction(sleepType) {
-	// Hide the sleep menu
-	menuManager.hideMenu('sleep');
-	
-	// Get the sleep button
-	const button = document.querySelector('[data-action="sleep"]');
-	
-	// Check if button is already disabled
-	if (button && button.disabled) {
-		console.log('Sleep action is disabled');
-		return;
-	}
-	
-	// Check energy-based restrictions
-	const statBars = document.querySelectorAll('.stat-bar');
-	let currentEnergy = null;
-	
-	for (const bar of statBars) {
-		const label = bar.querySelector('label');
-		if (label && label.textContent.toLowerCase() === 'energy') {
-			const valueSpan = bar.querySelector('span');
-			if (valueSpan) {
-				currentEnergy = parseInt(valueSpan.textContent);
-				break;
-			}
-		}
-	}
-	
-	// Check restrictions: Nap (0-50), Sleep (0-30 only)
-	if (currentEnergy !== null) {
-		if (sleepType === 'nap' && currentEnergy > 50) {
-			console.log(`Nap action blocked - energy is ${currentEnergy}% (max: 50%)`);
-			showActionFeedback('Nap', false, 'Energy is too high for a nap');
-			return;
-		}
-		if (sleepType === 'sleep' && currentEnergy > 30) {
-			console.log(`Sleep action blocked - energy is ${currentEnergy}% (max: 30%)`);
-			showActionFeedback('Sleep', false, 'Energy is too high for sleep');
-			return;
-		}
-	}
-	
-	// Disable button during action
-	if (button) {
-		button.disabled = true;
-		button.style.opacity = '0.6';
-	}
-	
-	try {
-		// Show sleep image for 3 seconds
-		showSleepImage(sleepType);
-		
-		// Send AJAX request
-		const response = await fetch('/api/pet/action', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({ action: 'sleep', sleep_type: sleepType })
-		});
-		
-		const data = await response.json();
-		
-		console.log('🔍 SLEEP ACTION RESPONSE:', data);
-		
-		if (data.success) {
-			// Show sleep overlay FIRST, before updating stats
-			console.log(`🛌 Checking sleep state: is_sleeping=${data.is_sleeping}, sleep_end_time=${data.sleep_end_time}`);
-			if (data.is_sleeping && data.sleep_end_time) {
-				console.log('✅ Triggering sleep overlay...');
-				showSleepOverlay(data.sleep_type, data.sleep_end_time);
-			} else {
-				console.log('❌ NOT showing sleep overlay - missing data');
-			}
-			
-			// Update all stats and pet appearance AFTER showing overlay
-			updateStatsDisplay(data.stats);
-			
-			// Show success feedback
-			showActionFeedback(`${sleepType.charAt(0).toUpperCase() + sleepType.slice(1)} started`, true);
-		} else {
-			showActionFeedback('Sleep', false, data.error);
-		}
-	} 	catch (error) {
-		console.error('Sleep action failed:', error);
-		showActionFeedback('Sleep', false, 'Network error');
-	}
-}
 
 // Legacy function - now uses MenuManager
 function hideAllMenus() {
@@ -1314,161 +1040,7 @@ function hideAllMenus() {
 
 // Individual menu functions removed - now handled by MenuManager class
 
-async function handleWashAction(washType) {
-	// Hide the wash menu
-	menuManager.hideMenu('wash');
-	
-	// Get the wash button
-	const button = document.querySelector('[data-action="wash"]');
-	
-	// Check if button is already disabled
-	if (button && button.disabled) {
-		console.log('Wash action is disabled');
-		return;
-	}
-	
-	// Check cleanliness-based restrictions
-	const statBars = document.querySelectorAll('.stat-bar');
-	let currentCleanliness = null;
-	
-	for (const bar of statBars) {
-		const label = bar.querySelector('label');
-		if (label && label.textContent.toLowerCase() === 'cleanliness') {
-			const valueSpan = bar.querySelector('span');
-			if (valueSpan) {
-				currentCleanliness = parseInt(valueSpan.textContent);
-				break;
-			}
-		}
-	}
-	
-	// Check restrictions: All wash types require cleanliness 85 or lower
-	if (currentCleanliness !== null && currentCleanliness > 85) {
-		console.log(`Wash action blocked - cleanliness is ${currentCleanliness}% (max: 85%)`);
-		showActionFeedback('Wash', false, 'Cleanliness is too high for washing');
-		return;
-	}
-	
-	// Disable button during action
-	if (button) {
-		button.disabled = true;
-		button.style.opacity = '0.6';
-	}
-	
-	try {
-		// Show wash image for 3 seconds
-		showWashImage(washType);
-		
-		// Send AJAX request
-		const response = await fetch('/api/pet/action', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({ action: 'wash', wash_type: washType })
-		});
-		
-		const data = await response.json();
-		
-		console.log('🔍 WASH ACTION RESPONSE:', data);
-		
-		if (data.success) {
-			// Show wash overlay FIRST, before updating stats
-			console.log(`🚿 Checking wash state: is_washing=${data.is_washing}, wash_end_time=${data.wash_end_time}`);
-			if (data.is_washing && data.wash_end_time) {
-				console.log('✅ Triggering wash overlay...');
-				showWashOverlay(data.wash_type, data.wash_end_time);
-			} else {
-				console.log('❌ NOT showing wash overlay - missing data');
-			}
-			
-			// Update all stats and pet appearance AFTER showing overlay
-			updateStatsDisplay(data.stats);
-			
-			// Show success feedback
-			showActionFeedback(`${washType.replace('_', ' ').charAt(0).toUpperCase() + washType.replace('_', ' ').slice(1)} started`, true);
-		} else {
-			showActionFeedback('Wash', false, data.error);
-		}
-	} 	catch (error) {
-		console.error('Wash action failed:', error);
-		showActionFeedback('Wash', false, 'Network error');
-	}
-}
 
-async function handlePlayAction(playType) {
-	// Hide the play menu
-	menuManager.hideMenu('play');
-	
-	// Get the play button
-	const button = document.querySelector('[data-action="play"]');
-	
-	// Check if button is already disabled
-	if (button && button.disabled) {
-		console.log('Play action is disabled');
-		return;
-	}
-	
-	// Check joy-based restrictions
-	const statBars = document.querySelectorAll('.stat-bar');
-	let currentJoy = null;
-	
-	for (const bar of statBars) {
-		const label = bar.querySelector('label');
-		if (label && label.textContent.toLowerCase() === 'joy') {
-			const valueSpan = bar.querySelector('span');
-			if (valueSpan) {
-				currentJoy = parseInt(valueSpan.textContent);
-				break;
-			}
-		}
-	}
-	
-	// Check restrictions: All play types require joy 90 or lower
-	if (currentJoy !== null && currentJoy >= 90) {
-		console.log(`Play action blocked - joy is ${currentJoy}% (max: 89%)`);
-		showActionFeedback('Play', false, 'Joy is too high for playing (max 89%)');
-		return;
-	}
-	
-	// Disable button during action
-	if (button) {
-		button.disabled = true;
-		button.style.opacity = '0.6';
-	}
-	
-	try {
-		// Show play image for 3 seconds
-		showPlayImage(playType);
-		
-		// Send AJAX request
-		const response = await fetch('/api/pet/action', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({ action: 'play', play_type: playType })
-		});
-		
-		const data = await response.json();
-		
-		console.log('🔍 PLAY ACTION RESPONSE:', data);
-		
-		if (data.success) {
-			// Update all stats and pet appearance
-			updateStatsDisplay(data.stats);
-			
-			// Show success feedback
-			const actionName = playType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
-			showActionFeedback(`${actionName}`, true);
-		} else {
-			showActionFeedback('Play', false, data.error);
-		}
-	} 	catch (error) {
-		console.error('Play action failed:', error);
-		showActionFeedback('Play', false, 'Network error');
-	}
-}
 
 function showFoodImage(foodType) {
 	if (!gameScene || !pet) return;
@@ -1590,48 +1162,6 @@ function showPlayImage(playType) {
 	}, 3000);
 }
 
-async function handleTestAction(testType) {
-	// Disable button during action
-	const button = document.querySelector(`[data-test="${testType}"]`);
-	if (button) {
-		button.disabled = true;
-		button.style.opacity = '0.6';
-	}
-	
-	try {
-		// Send AJAX request to reduce stats
-		const response = await fetch('/api/pet/test-action', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({ test_action: testType })
-		});
-		
-		const data = await response.json();
-		
-		if (data.success) {
-			// Update the specific stat that changed
-			if (data.stats) {
-				updateStatsDisplay(data.stats);
-			}
-			
-			// Show success feedback
-			showActionFeedback(testType.replace('-', ' '), true);
-		} else {
-			showActionFeedback(testType.replace('-', ' '), false, data.error);
-		}
-	} catch (error) {
-		console.error('Test action failed:', error);
-		showActionFeedback(testType.replace('-', ' '), false, 'Network error');
-	} finally {
-		// Re-enable button
-		if (button) {
-			button.disabled = false;
-			button.style.opacity = '1';
-		}
-	}
-}
 
 function playActionAnimation(action) {
 	if (!gameScene || !pet) return;
@@ -2304,58 +1834,27 @@ function startSleepTimer() {
 function updateSleepProgress() {
 	if (!sleepEndTime) return;
 	
-	const now = new Date();
-	const timeRemaining = sleepEndTime - now;
 	
-	console.log(`🕐 Sleep check: now=${now.toISOString()}, end=${sleepEndTime.toISOString()}, remaining=${timeRemaining}ms`);
+	// Determine sleep duration from title
+	const sleepType = document.getElementById('sleep-title').textContent.toLowerCase();
+	const totalDurationMs = sleepType.includes('nap') ? 60000 : 120000; // 1 or 2 minutes
 	
-	if (timeRemaining <= 0) {
+	const timerConfig = {
+		totalDuration: totalDurationMs,
+		progressFillId: 'sleep-progress-fill',
+		progressTextId: 'sleep-progress-text',
+		timerId: 'sleep-timer',
+		simpleProgressFillId: 'simple-progress-fill',
+		simpleCountdownId: 'simple-sleep-countdown'
+	};
+	
+	const isRunning = TimerUtility.updateProgress(sleepEndTime, timerConfig);
+	
+	if (!isRunning) {
 		// Sleep finished
 		console.log('⏰ Sleep timer finished - hiding overlay');
 		hideSleepOverlay();
 		// DON'T call loadCurrentStats() here - it causes infinite loop
-		return;
-	}
-	
-	// Calculate progress - we need to track total duration
-	// For now, estimate based on sleep type (1 min nap, 2 min sleep)
-	const sleepType = document.getElementById('sleep-title').textContent.toLowerCase();
-	const totalDurationMs = sleepType.includes('nap') ? 60000 : 120000; // 1 or 2 minutes
-	const elapsedMs = totalDurationMs - timeRemaining;
-	const progressPercent = Math.min(100, Math.max(0, (elapsedMs / totalDurationMs) * 100));
-	
-	// Update simple progress bar (most important - always visible)
-	const simpleProgressFill = document.getElementById('simple-progress-fill');
-	const simpleCountdown = document.getElementById('simple-sleep-countdown');
-	
-	// Format time for display
-	const minutes = Math.floor(timeRemaining / 60000);
-	const seconds = Math.floor((timeRemaining % 60000) / 1000);
-	const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-	
-	if (simpleProgressFill) {
-		simpleProgressFill.style.width = `${progressPercent}%`;
-		// Temporarily disable progress logging to clean console
-		// if (Math.round(progressPercent) % 10 === 0) {
-		// 	console.log(`⏱️ Progress: ${Math.round(progressPercent)}% | Time: ${timeString}`);
-		// }
-	}
-	if (simpleCountdown) {
-		simpleCountdown.textContent = timeString;
-	}
-	
-	// Update main progress bar
-	const progressFill = document.getElementById('sleep-progress-fill');
-	const progressText = document.getElementById('sleep-progress-text');
-	if (progressFill && progressText) {
-		progressFill.style.width = `${progressPercent}%`;
-		progressText.textContent = `${Math.round(progressPercent)}%`;
-	}
-	
-	// Update main timer
-	const timerElement = document.getElementById('sleep-timer');
-	if (timerElement) {
-		timerElement.textContent = `Time remaining: ${timeString}`;
 	}
 }
 
@@ -2492,12 +1991,24 @@ function startWashTimer() {
 function updateWashProgress() {
 	if (!washEndTime) return;
 	
-	const now = new Date();
-	const timeRemaining = washEndTime - now;
 	
-	console.log(`🕐 Wash check: now=${now.toISOString()}, end=${washEndTime.toISOString()}, remaining=${timeRemaining}ms`);
+	// Determine wash duration from title
+	const washTitle = document.getElementById('wash-title');
+	const washType = washTitle ? washTitle.textContent.toLowerCase() : '';
+	const totalDurationMs = washType.includes('hands') ? 5000 : 
+							washType.includes('shower') ? 20000 : 
+							washType.includes('bath') ? 30000 : 5000; // Default to 5s
 	
-	if (timeRemaining <= 0) {
+	const timerConfig = {
+		totalDuration: totalDurationMs,
+		progressFillId: 'wash-progress-fill',
+		progressTextId: 'wash-progress-text',
+		timerId: 'wash-timer'
+	};
+	
+	const isRunning = TimerUtility.updateProgress(washEndTime, timerConfig);
+	
+	if (!isRunning) {
 		// Wash finished
 		console.log('⏰ Wash timer finished - hiding overlay');
 		hideWashOverlay();
@@ -2506,350 +2017,10 @@ function updateWashProgress() {
 			console.log('🚿 Showing wash menu after animation completion');
 			menuManager.showMenu('wash');
 		}, 100); // Small delay to ensure overlay is fully hidden
-		return;
-	}
-	
-	// Calculate progress - we need to track total duration
-	// Get wash type from the title and determine duration
-	const washTitle = document.getElementById('wash-title');
-	const washType = washTitle ? washTitle.textContent.toLowerCase() : '';
-	const totalDurationMs = washType.includes('hands') ? 5000 : 
-							washType.includes('shower') ? 20000 : 
-							washType.includes('bath') ? 30000 : 5000; // Default to 5s
-	const elapsedMs = totalDurationMs - timeRemaining;
-	const progressPercent = Math.min(100, Math.max(0, (elapsedMs / totalDurationMs) * 100));
-	
-	// Update main progress bar
-	const progressFill = document.getElementById('wash-progress-fill');
-	const progressText = document.getElementById('wash-progress-text');
-	if (progressFill && progressText) {
-		progressFill.style.width = `${progressPercent}%`;
-		progressText.textContent = `${Math.round(progressPercent)}%`;
-	}
-	
-	// Format time for display
-	const minutes = Math.floor(timeRemaining / 60000);
-	const seconds = Math.floor((timeRemaining % 60000) / 1000);
-	const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-	
-	// Update main timer
-	const timerElement = document.getElementById('wash-timer');
-	if (timerElement) {
-		timerElement.textContent = `Time remaining: ${timeString}`;
 	}
 }
 
-function showFeedOverlay(foodType, endTime, startTime = null) {
-	console.log(`🍽️ SHOWING FEED OVERLAY: ${foodType} until ${endTime}`);
-	console.log(`🕐 Current time: ${new Date()}`);
-	console.log(`📍 Called from:`, new Error().stack.split('\n')[2]);
-	
-	// Ensure feed menu is hidden during animation
-	menuManager.hideMenu('feed');
-	console.log('🍽️ Feed menu hidden during animation');
-	
-	isFeeding = true;
-	window.isFeeding = isFeeding;
-	
-	// Always work in UTC to match backend
-	// Backend sends UTC times, so we need to compare with UTC
-	if (startTime) {
-		// Ensure we're parsing the UTC time correctly
-		const backendStartTime = new Date(startTime + (startTime.endsWith('Z') ? '' : 'Z')); 
-		const backendEndTime = new Date(endTime + (endTime.endsWith('Z') ? '' : 'Z'));
-		const nowUTC = new Date();
-		
-		// Simple approach: use the backend's actual end time if it's in the future
-		const timeToEnd = backendEndTime - nowUTC;
-		
-		if (timeToEnd > 0) {
-			// Backend end time is in the future, use it directly
-			feedEndTime = backendEndTime;
-			console.log(`✅ Using backend end time directly: ${timeToEnd}ms (${Math.round(timeToEnd/1000)}s) remaining`);
-		} else {
-			// Calculate from start time + duration (fallback)
-			const elapsedMs = nowUTC - backendStartTime;
-			const totalDurationMs = 5000; // 5 seconds for feeding
-			const remainingMs = Math.max(0, totalDurationMs - elapsedMs); // Don't go negative
-			
-			feedEndTime = new Date(nowUTC.getTime() + remainingMs);
-			
-			console.log(`⏰ Fallback calculation:`, {
-				backendStartUTC: backendStartTime.toISOString(),
-				nowUTC: nowUTC.toISOString(), 
-				elapsedMs: Math.round(elapsedMs/1000) + 's',
-				totalDurationMs: Math.round(totalDurationMs/1000) + 's', 
-				remainingMs: Math.round(remainingMs/1000) + 's',
-				endTimeUTC: feedEndTime.toISOString()
-			});
-		}
-	} else {
-		// No start time provided, calculate from current UTC time
-		const nowUTC = new Date();
-		const feedDurationMs = 5000; // 5 seconds for feeding
-		feedEndTime = new Date(nowUTC.getTime() + feedDurationMs);
-		console.log(`✅ New feed - end time UTC: ${feedEndTime.toISOString()}, local: ${feedEndTime.toLocaleString()}`);
-	}
-	
-	// Show feed overlay
-	const overlay = document.getElementById('feed-overlay');
-	const title = document.getElementById('feed-title');
-	if (overlay && title) {
-		title.textContent = `Pet is eating ${foodType.replace('_', ' ')}...`;
-		overlay.style.display = 'flex';
-		console.log('✅ Main feed overlay shown');
-	} else {
-		console.error('❌ Main feed overlay elements not found');
-	}
-	
-	// Disable all action buttons
-	disableAllActions(true);
-	
-	// Start the countdown timer
-	startFeedTimer();
-	
-	// Add protection against immediate hiding
-	setTimeout(() => {
-		if (!isFeeding) {
-			console.error('🚨 FEED OVERLAY WAS HIDDEN IMMEDIATELY! Something called hideFeedOverlay()');
-		}
-	}, 100);
-}
 
-function hideFeedOverlay() {
-	console.log('🍽️ HIDING FEED OVERLAY');
-	
-	isFeeding = false;
-	window.isFeeding = isFeeding;
-	feedEndTime = null;
-	
-	// Hide main feed overlay
-	const overlay = document.getElementById('feed-overlay');
-	if (overlay) {
-		overlay.style.display = 'none';
-		console.log('✅ Main feed overlay hidden');
-	}
-	
-	// Re-enable action buttons
-	disableAllActions(false);
-	
-	// Clear the timer
-	if (feedTimer) {
-		clearInterval(feedTimer);
-		feedTimer = null;
-		console.log('✅ Feed timer cleared');
-	}
-}
-
-function startFeedTimer() {
-	if (feedTimer) {
-		clearInterval(feedTimer);
-	}
-	
-	feedTimer = setInterval(updateFeedProgress, 1000);
-	updateFeedProgress(); // Initial update
-}
-
-function updateFeedProgress() {
-	if (!feedEndTime) return;
-	
-	const now = new Date();
-	const timeRemaining = feedEndTime - now;
-	
-	console.log(`🕐 Feed check: now=${now.toISOString()}, end=${feedEndTime.toISOString()}, remaining=${timeRemaining}ms`);
-	
-	if (timeRemaining <= 0) {
-		// Feed finished
-		console.log('⏰ Feed timer finished - hiding overlay');
-		hideFeedOverlay();
-		// Show feed menu again after animation completes
-		setTimeout(() => {
-			console.log('🍽️ Showing feed menu after animation completion');
-			menuManager.showMenu('feed');
-		}, 100); // Small delay to ensure overlay is fully hidden
-		return;
-	}
-	
-	// Calculate progress - we need to track total duration
-	const totalDurationMs = 5000; // 5 seconds for feeding
-	const elapsedMs = totalDurationMs - timeRemaining;
-	const progressPercent = Math.min(100, Math.max(0, (elapsedMs / totalDurationMs) * 100));
-	
-	// Update main progress bar
-	const progressFill = document.getElementById('feed-progress-fill');
-	const progressText = document.getElementById('feed-progress-text');
-	if (progressFill && progressText) {
-		progressFill.style.width = `${progressPercent}%`;
-		progressText.textContent = `${Math.round(progressPercent)}%`;
-	}
-	
-	// Format time for display
-	const minutes = Math.floor(timeRemaining / 60000);
-	const seconds = Math.floor((timeRemaining % 60000) / 1000);
-	const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-	
-	// Update main timer
-	const timerElement = document.getElementById('feed-timer');
-	if (timerElement) {
-		timerElement.textContent = `Time remaining: ${timeString}`;
-	}
-}
-
-function showPlayOverlay(playType, endTime, startTime = null) {
-	console.log(`🎮 SHOWING PLAY OVERLAY: ${playType} until ${endTime}`);
-	console.log(`🕐 Current time: ${new Date()}`);
-	console.log(`📍 Called from:`, new Error().stack.split('\n')[2]);
-	
-	// Ensure play menu is hidden during animation
-	menuManager.hideMenu('play');
-	console.log('🎮 Play menu hidden during animation');
-	
-	isPlaying = true;
-	window.isPlaying = isPlaying;
-	
-	// Always work in UTC to match backend
-	// Backend sends UTC times, so we need to compare with UTC
-	if (startTime) {
-		// Ensure we're parsing the UTC time correctly
-		const backendStartTime = new Date(startTime + (startTime.endsWith('Z') ? '' : 'Z')); 
-		const backendEndTime = new Date(endTime + (endTime.endsWith('Z') ? '' : 'Z'));
-		const nowUTC = new Date();
-		
-		// Simple approach: use the backend's actual end time if it's in the future
-		const timeToEnd = backendEndTime - nowUTC;
-		
-		if (timeToEnd > 0) {
-			// Backend end time is in the future, use it directly
-			playEndTime = backendEndTime;
-			console.log(`✅ Using backend end time directly: ${timeToEnd}ms (${Math.round(timeToEnd/1000)}s) remaining`);
-		} else {
-			// Calculate from start time + duration (fallback)
-			const elapsedMs = nowUTC - backendStartTime;
-			const totalDurationMs = 10000; // 10 seconds for playing
-			const remainingMs = Math.max(0, totalDurationMs - elapsedMs); // Don't go negative
-			
-			playEndTime = new Date(nowUTC.getTime() + remainingMs);
-			
-			console.log(`⏰ Fallback calculation:`, {
-				backendStartUTC: backendStartTime.toISOString(),
-				nowUTC: nowUTC.toISOString(), 
-				elapsedMs: Math.round(elapsedMs/1000) + 's',
-				totalDurationMs: Math.round(totalDurationMs/1000) + 's', 
-				remainingMs: Math.round(remainingMs/1000) + 's',
-				endTimeUTC: playEndTime.toISOString()
-			});
-		}
-	} else {
-		// No start time provided, calculate from current UTC time
-		const nowUTC = new Date();
-		const playDurationMs = 10000; // 10 seconds for playing
-		playEndTime = new Date(nowUTC.getTime() + playDurationMs);
-		console.log(`✅ New play - end time UTC: ${playEndTime.toISOString()}, local: ${playEndTime.toLocaleString()}`);
-	}
-	
-	// Show play overlay
-	const overlay = document.getElementById('play-overlay');
-	const title = document.getElementById('play-title');
-	if (overlay && title) {
-		title.textContent = `Pet is playing ${playType.replace('_', ' ')}...`;
-		overlay.style.display = 'flex';
-		console.log('✅ Main play overlay shown');
-	} else {
-		console.error('❌ Main play overlay elements not found');
-	}
-	
-	// Disable all action buttons
-	disableAllActions(true);
-	
-	// Start the countdown timer
-	startPlayTimer();
-	
-	// Add protection against immediate hiding
-	setTimeout(() => {
-		if (!isPlaying) {
-			console.error('🚨 PLAY OVERLAY WAS HIDDEN IMMEDIATELY! Something called hidePlayOverlay()');
-		}
-	}, 100);
-}
-
-function hidePlayOverlay() {
-	console.log('🎮 HIDING PLAY OVERLAY');
-	
-	isPlaying = false;
-	window.isPlaying = isPlaying;
-	playEndTime = null;
-	
-	// Hide main play overlay
-	const overlay = document.getElementById('play-overlay');
-	if (overlay) {
-		overlay.style.display = 'none';
-		console.log('✅ Main play overlay hidden');
-	}
-	
-	// Re-enable action buttons
-	disableAllActions(false);
-	
-	// Clear the timer
-	if (playTimer) {
-		clearInterval(playTimer);
-		playTimer = null;
-		console.log('✅ Play timer cleared');
-	}
-}
-
-function startPlayTimer() {
-	if (playTimer) {
-		clearInterval(playTimer);
-	}
-	
-	playTimer = setInterval(updatePlayProgress, 1000);
-	updatePlayProgress(); // Initial update
-}
-
-function updatePlayProgress() {
-	if (!playEndTime) return;
-	
-	const now = new Date();
-	const timeRemaining = playEndTime - now;
-	
-	console.log(`🕐 Play check: now=${now.toISOString()}, end=${playEndTime.toISOString()}, remaining=${timeRemaining}ms`);
-	
-	if (timeRemaining <= 0) {
-		// Play finished
-		console.log('⏰ Play timer finished - hiding overlay');
-		hidePlayOverlay();
-		// Show play menu again after animation completes
-		setTimeout(() => {
-			console.log('🎮 Showing play menu after animation completion');
-			menuManager.showMenu('play');
-		}, 100); // Small delay to ensure overlay is fully hidden
-		return;
-	}
-	
-	// Calculate progress - we need to track total duration
-	const totalDurationMs = 10000; // 10 seconds for playing
-	const elapsedMs = totalDurationMs - timeRemaining;
-	const progressPercent = Math.min(100, Math.max(0, (elapsedMs / totalDurationMs) * 100));
-	
-	// Update main progress bar
-	const progressFill = document.getElementById('play-progress-fill');
-	const progressText = document.getElementById('play-progress-text');
-	if (progressFill && progressText) {
-		progressFill.style.width = `${progressPercent}%`;
-		progressText.textContent = `${Math.round(progressPercent)}%`;
-	}
-	
-	// Format time for display
-	const minutes = Math.floor(timeRemaining / 60000);
-	const seconds = Math.floor((timeRemaining % 60000) / 1000);
-	const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-	
-	// Update main timer
-	const timerElement = document.getElementById('play-timer');
-	if (timerElement) {
-		timerElement.textContent = `Time remaining: ${timeString}`;
-	}
-}
 
 function updateInventoryDisplay(inventory) {
 	// Update global inventory state
@@ -2942,19 +2113,13 @@ function updatePlayButtonStates() {
 }
 
 function disableAllActions(disabled) {
-	console.log(`🔧 disableAllActions(${disabled}) called from:`, new Error().stack.split('\n')[2]);
-	
 	const actionButtons = document.querySelectorAll('.action-btn');
 	const shopButton = document.getElementById('shop-btn');
 	const storageButton = document.getElementById('storage-btn');
 	const minigameButton = document.getElementById('minigame-btn');
-	const testButtons = document.querySelectorAll('.test-btn');
-
-	console.log(`🎯 Found ${actionButtons.length} action buttons:`, Array.from(actionButtons).map(btn => `${btn.textContent} (${btn.dataset.action})`));
 
 	// Disable all action buttons (feed, play, wash, sleep) during animations
 	actionButtons.forEach(button => {
-		console.log(`🔧 ${disabled ? 'Disabling' : 'Enabling'} button: ${button.textContent} (${button.dataset.action})`);
 		button.disabled = disabled;
 		
 		if (disabled) {
@@ -3015,11 +2180,6 @@ function disableAllActions(disabled) {
 		}
 	}
 
-	// Disable test buttons during animations
-	testButtons.forEach(button => {
-		button.disabled = disabled;
-		button.style.opacity = disabled ? '0.5' : '1';
-	});
 }
 
 // Storage modal functions
