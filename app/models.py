@@ -8,7 +8,8 @@ from flask_login import UserMixin
 from .extensions import db, login_manager
 from .constants import (
     PET_TYPES, FOOD_TYPES, STAT_DECAY_RATES, INVENTORY_DEFAULTS, 
-    INVENTORY_LIMITS, PET_APPEARANCE_THRESHOLDS
+    INVENTORY_LIMITS, PET_APPEARANCE_THRESHOLDS,
+    MATURITY_ORDER, MATURITY_DURATIONS_DAYS
 )
 
 
@@ -61,6 +62,33 @@ class Pet(db.Model):
 
 	# Relationships
 	owner = db.relationship("User", back_populates="pet")
+
+	def compute_maturity_stage(self, now: Optional[datetime] = None) -> str:
+		"""Return computed maturity stage based on created_at and configured durations.
+
+		Stages: child (first day), teen (second day), adult (after).
+		"""
+		now = now or datetime.utcnow()
+		elapsed_days = (now - self.created_at).total_seconds() / 86400.0
+		child_days = MATURITY_DURATIONS_DAYS.get("child") or 0
+		teen_days = child_days + (MATURITY_DURATIONS_DAYS.get("teen") or 0)
+		if elapsed_days < child_days:
+			return "child"
+		if elapsed_days < teen_days:
+			return "teen"
+		return "adult"
+
+	def compute_next_maturity_change(self, now: Optional[datetime] = None) -> Optional[datetime]:
+		"""Return the UTC datetime when the pet will enter the next stage, or None for adult."""
+		now = now or datetime.utcnow()
+		stage = self.compute_maturity_stage(now)
+		child_days = MATURITY_DURATIONS_DAYS.get("child") or 0
+		teen_days = child_days + (MATURITY_DURATIONS_DAYS.get("teen") or 0)
+		if stage == "child":
+			return self.created_at + timedelta(days=child_days)
+		if stage == "teen":
+			return self.created_at + timedelta(days=teen_days)
+		return None
 
 	def update_stats(self):
 		"""Update stats based on time passed since last actions"""

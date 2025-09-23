@@ -10,6 +10,10 @@
 <body>
 	<header class="site-header">
 		<h1>{{ pet.name }} the {{ pet.pet_type.title() }}</h1>
+		<div class="maturity-info" style="font-size: 14px; color: #444;">
+			<span id="maturity-stage">Stage: adult</span>
+			<span id="maturity-next" style="margin-left: 10px;">Next: --</span>
+		</div>
 		<nav class="auth-nav">
 			<a href="{{ url_for('auth.logout') }}">Logout</a>
 		</nav>
@@ -516,6 +520,10 @@
 					<button class="test-btn" data-test="reduce-cleanliness">Reduce Cleanliness (-10)</button>
 					<button class="test-btn" data-test="reduce-joy">Reduce Joy (-10)</button>
 					<button class="test-btn" onclick="testSleep(); event.stopPropagation();">🧪 TEST SLEEP</button>
+					<div style="margin-top:8px;">
+						<button class="test-btn" id="maturity-down">⏬ Stage Down</button>
+						<button class="test-btn" id="maturity-up">⏫ Stage Up</button>
+					</div>
 				</div>
 			</div>
 		</div>

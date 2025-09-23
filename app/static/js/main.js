@@ -16,6 +16,7 @@ let pet;
 let petType = 'hedgehog'; // default, will be updated from server
 let gameScene;
 let currentPetState = 'idle';
+let maturityStage = 'adult';
 let foodDisplaySprite = null; // For showing food images
 let foodDisplayTimer = null; // For timing food display
 
@@ -186,6 +187,16 @@ class MenuManager {
 
 	getActiveMenu() {
 		return this.activeMenu;
+	}
+
+	updateMaturityLabels(maturity) {
+		if (!maturity) return;
+		const stageEl = document.getElementById('maturity-stage');
+		const nextEl = document.getElementById('maturity-next');
+		if (stageEl) stageEl.textContent = `Stage: ${maturity.stage}`;
+		if (nextEl) {
+			nextEl.textContent = maturity.next_change_time ? `Next: ${new Date(maturity.next_change_time).toLocaleString()}` : 'Next: --';
+		}
 	}
 }
 
@@ -654,6 +665,11 @@ async function handleUnifiedAction(actionType, actionSubType) {
 			
 			// Update stats
 			updateStatsDisplay(data.stats);
+			// Update maturity if included
+			if (data.maturity) {
+				maturityStage = data.maturity.stage || maturityStage;
+				applyMaturitySprites();
+			}
 			
 			// Show success feedback
 			const feedbackText = actionSubType ? 
@@ -696,32 +712,38 @@ function preload() {
 	this.load.image('squirrel_sleeping', '/static/sprites/squirrel_sleeping.png');
 	this.load.image('squirrel_sad', '/static/sprites/squirrel_sad.png');
 	
-	// Load squirrel idle animation sprite sheet (4 frames, 256x256 each)
+	// Load squirrel idle animation sprite sheet (adult default)
 	this.load.spritesheet('squirrel_idle_anim', '/static/sprites/sheets/squirrel_idle_sprite.png', {
 		frameWidth: 256,
 		frameHeight: 256
 	});
 	
-	// Load squirrel hungry animation sprite sheet (4 frames, 256x256 each)
+	// Load squirrel hungry animation sprite sheet (adult default)
 	this.load.spritesheet('squirrel_hungry_anim', '/static/sprites/sheets/squirrel_hungry_sprite.png', {
 		frameWidth: 256,
 		frameHeight: 256
 	});
 	
-	// Load squirrel sleeping animation sprite sheet (4 frames, 256x256 each)
+	// Load squirrel sleeping animation sprite sheet (adult default)
 	this.load.spritesheet('squirrel_sleeping_anim', '/static/sprites/sheets/squirrel_sleepy_sprite.png', {
 		frameWidth: 256,
 		frameHeight: 256
 	});
 	
-	// Load squirrel dirty animation sprite sheet (4 frames, 256x256 each)
+	// Load squirrel dirty animation sprite sheet (adult default)
 	this.load.spritesheet('squirrel_dirty_anim', '/static/sprites/sheets/squirrel_dirty_sprite.png', {
 		frameWidth: 256,
 		frameHeight: 256
 	});
 	
-	// Load squirrel bored animation sprite sheet (4 frames, 256x256 each)
+	// Load squirrel bored animation sprite sheet (adult default)
 	this.load.spritesheet('squirrel_bored_anim', '/static/sprites/sheets/squirrel_bored_sprite.png', {
+		frameWidth: 256,
+		frameHeight: 256
+	});
+
+	// Child/Teen placeholder sprite sheet (used for all states in early stages)
+	this.load.spritesheet('squirrel_placeholder_anim', '/static/sprites/sheets/placeholder_sprite.png', {
 		frameWidth: 256,
 		frameHeight: 256
 	});
@@ -739,6 +761,11 @@ function preload() {
 	// Load play images
 	this.load.image('tennis_ball', '/static/img/tennis_ball.png');
 	this.load.image('play_wheel', '/static/img/play_wheel.png');
+
+	// Wash images used by overlay image functions
+	this.load.image('washbasin', '/static/img/washbasin.png');
+	this.load.image('shower_cabin', '/static/img/shower_cabin.png');
+	this.load.image('bath', '/static/img/bath.png');
 	
 	console.log('Squirrel sprites, food, sleep, and play images loaded');
 	
@@ -771,17 +798,18 @@ function create() {
 	if (petType === 'squirrel') {
 		// Use animated squirrel sprite
 		console.log('Creating animated squirrel sprite...');
-		pet = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'squirrel_idle_anim');
+		const initialKey = getStageSpriteKey('idle');
+		pet = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT / 2, initialKey);
 		
 		// Since frames are already 256x256, we don't need to scale x2
 		pet.setScale(1);
 		
-		// Create idle animation (4 frames at 2fps = 2 seconds total)
+		// Create idle animation (4 frames)
 		this.anims.create({
 			key: 'squirrel_idle_animation',
 			frames: this.anims.generateFrameNumbers('squirrel_idle_anim', { start: 0, end: 3 }),
 			frameRate: 0.65,
-			repeat: -1 // Loop forever
+			repeat: -1
 		});
 		
 		// Create hungry animation (4 frames at 2fps = 2 seconds total)
@@ -816,8 +844,8 @@ function create() {
 			repeat: -1 // Loop forever
 		});
 		
-		// Start the idle animation
-		pet.play('squirrel_idle_animation');
+		// Start the idle animation (may be overridden to placeholder later)
+		pet.play(getStageAnimationKey('idle'));
 		
 		console.log('Animated squirrel sprite created:', pet);
 		
@@ -869,6 +897,21 @@ function setupAutoUpdates() {
 			if (data.success) {
 				// Use loadCurrentStats logic to handle sleep state properly
 				updateStatsDisplay(data.stats);
+				// Maturity info in auto update
+				if (data.maturity) {
+					maturityStage = data.maturity.stage || maturityStage;
+					const stageEl = document.getElementById('maturity-stage');
+					const nextEl = document.getElementById('maturity-next');
+					if (stageEl) stageEl.textContent = `Stage: ${maturityStage}`;
+					if (nextEl) {
+						if (data.maturity.next_change_time) {
+							nextEl.textContent = `Next: ${new Date(data.maturity.next_change_time).toLocaleString()}`;
+						} else {
+							nextEl.textContent = 'Next: --';
+						}
+					}
+					applyMaturitySprites();
+				}
 				
 				// Check sleep state (same logic as loadCurrentStats)
 				if (data.is_sleeping && data.sleep_end_time && !isSleeping) {
@@ -892,6 +935,21 @@ async function loadCurrentStats() {
 		
 		if (data.success) {
 			updateStatsDisplay(data.stats);
+			// Update maturity UI and stage
+			if (data.maturity) {
+				maturityStage = data.maturity.stage || 'adult';
+				const stageEl = document.getElementById('maturity-stage');
+				const nextEl = document.getElementById('maturity-next');
+				if (stageEl) stageEl.textContent = `Stage: ${maturityStage}`;
+				if (nextEl) {
+					if (data.maturity.next_change_time) {
+						nextEl.textContent = `Next: ${new Date(data.maturity.next_change_time).toLocaleString()}`;
+					} else {
+						nextEl.textContent = 'Next: --';
+					}
+				}
+				applyMaturitySprites();
+			}
 			
 			// Update inventory
 			if (data.inventory) {
@@ -1005,6 +1063,20 @@ function setupActionButtons() {
 
 	// Setup buy buttons
 	setupBuyButtons();
+
+	// Setup maturity debug buttons
+	const maturityUp = document.getElementById('maturity-up');
+	const maturityDown = document.getElementById('maturity-down');
+	if (maturityUp) {
+		maturityUp.addEventListener('click', async () => {
+			await changeMaturity('up');
+		});
+	}
+	if (maturityDown) {
+		maturityDown.addEventListener('click', async () => {
+			await changeMaturity('down');
+		});
+	}
 	
 	
 	// Global menu closing functionality
@@ -1028,6 +1100,24 @@ function setupActionButtons() {
 			menuManager.hideAllMenus();
 		}
 	});
+}
+
+async function changeMaturity(action) {
+	try {
+		const response = await fetch('/api/pet/maturity', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ action })
+		});
+		const data = await response.json();
+		if (data && data.success && data.maturity) {
+			maturityStage = data.maturity.stage || maturityStage;
+			menuManager.updateMaturityLabels(data.maturity);
+			applyMaturitySprites();
+		}
+	} catch (e) {
+		console.error('Failed to change maturity:', e);
+	}
 }
 
 
@@ -1381,6 +1471,9 @@ function updateButtonStates(stats) {
 
 function updatePetAppearance(stats) {
 	if (!pet || petType !== 'squirrel') return;
+
+	// Apply maturity sprites before computing states
+	applyMaturitySprites();
 	
 	// Determine active states based on thresholds (multiple states can be active)
 	const activeStates = [];
@@ -1419,6 +1512,62 @@ function updatePetAppearance(stats) {
 	}
 }
 
+// Select appropriate sprite sheet per maturity stage
+function getStageSpriteKey(state) {
+	if (petType !== 'squirrel') return 'squirrel_idle_anim';
+	const isAdult = maturityStage === 'adult';
+	if (!isAdult) {
+		return 'squirrel_placeholder_anim';
+	}
+	const mapping = {
+		'idle': 'squirrel_idle_anim',
+		'hungry': 'squirrel_hungry_anim',
+		'sleeping': 'squirrel_sleeping_anim',
+		'dirty': 'squirrel_dirty_anim',
+		'bored': 'squirrel_bored_anim'
+	};
+	return mapping[state] || 'squirrel_idle_anim';
+}
+
+function getStageAnimationKey(state) {
+	if (petType !== 'squirrel') return 'squirrel_idle_animation';
+	const isAdult = maturityStage === 'adult';
+	if (!isAdult) return 'squirrel_placeholder_animation';
+	return `squirrel_${state}_animation`;
+}
+
+function ensurePlaceholderAnimation() {
+	if (!gameScene) return;
+	if (!gameScene.anims.exists('squirrel_placeholder_animation')) {
+		gameScene.anims.create({
+			key: 'squirrel_placeholder_animation',
+			frames: gameScene.anims.generateFrameNumbers('squirrel_placeholder_anim', { start: 0, end: 3 }),
+			frameRate: 0.65,
+			repeat: -1
+		});
+	}
+}
+
+function applyMaturitySprites() {
+	if (!pet || petType !== 'squirrel') return;
+	const isAdult = maturityStage === 'adult';
+	if (!isAdult) {
+		ensurePlaceholderAnimation();
+		pet.stop();
+		pet.setTexture('squirrel_placeholder_anim');
+		pet.play('squirrel_placeholder_animation');
+	} else {
+		// switch back to correct animation for current state
+		const states = currentPetState.includes('+') ? currentPetState.split('+') : [currentPetState];
+		if (states.length === 1) {
+			const key = getStageSpriteKey(states[0]);
+			pet.stop();
+			pet.setTexture(key);
+			pet.play(getStageAnimationKey(states[0]));
+		}
+	}
+}
+
 function changePetStateMulti(activeStates, stateKey) {
 	if (!pet || petType !== 'squirrel') {
 		console.log('Cannot change pet state:', { pet: !!pet, petType, activeStates });
@@ -1428,13 +1577,13 @@ function changePetStateMulti(activeStates, stateKey) {
 	console.log('Changing pet state from', currentPetState, 'to', stateKey, '(states:', activeStates, ')');
 	currentPetState = stateKey;
 	
-	// Map state names to their animation sprite sheet keys
+	// Map state names to their animation sprite sheet keys (stage-aware)
 	const stateToSpriteSheet = {
-		'idle': 'squirrel_idle_anim',
-		'hungry': 'squirrel_hungry_anim',
-		'sleeping': 'squirrel_sleeping_anim',
-		'dirty': 'squirrel_dirty_anim',
-		'bored': 'squirrel_bored_anim'
+		'idle': getStageSpriteKey('idle'),
+		'hungry': getStageSpriteKey('hungry'),
+		'sleeping': getStageSpriteKey('sleeping'),
+		'dirty': getStageSpriteKey('dirty'),
+		'bored': getStageSpriteKey('bored')
 	};
 	
 	// Handle single states that use animated sprites
@@ -1446,7 +1595,7 @@ function changePetStateMulti(activeStates, stateKey) {
 			console.log(`Switching to animated ${state} state`);
 			pet.stop();
 			pet.setTexture(stateToSpriteSheet[state]);
-			pet.play(`squirrel_${state}_animation`);
+			pet.play(getStageAnimationKey(state));
 			console.log(`Animated ${state} state activated`);
 		} else {
 			// Use static sprite (happy, sad)
@@ -1483,7 +1632,7 @@ function createCombinedAnimation(activeStates, stateKey) {
 	if (gameScene.anims.exists(animationKey)) {
 		console.log(`Using existing combined animation: ${animationKey}`);
 		pet.stop();
-		pet.setTexture('squirrel_idle_anim'); // Use any sprite sheet as base texture
+		pet.setTexture(getStageSpriteKey('idle')); // Use stage-based base texture
 		pet.play(animationKey);
 		return;
 	}
@@ -1493,11 +1642,11 @@ function createCombinedAnimation(activeStates, stateKey) {
 	// Build combined frame sequence
 	const combinedFrames = [];
 	const stateToSpriteSheet = {
-		'idle': 'squirrel_idle_anim',
-		'hungry': 'squirrel_hungry_anim',
-		'sleeping': 'squirrel_sleeping_anim',
-		'dirty': 'squirrel_dirty_anim',
-		'bored': 'squirrel_bored_anim'
+		'idle': getStageSpriteKey('idle'),
+		'hungry': getStageSpriteKey('hungry'),
+		'sleeping': getStageSpriteKey('sleeping'),
+		'dirty': getStageSpriteKey('dirty'),
+		'bored': getStageSpriteKey('bored')
 	};
 	
 	// Add frames from each active state (only animated states)
@@ -1518,7 +1667,7 @@ function createCombinedAnimation(activeStates, stateKey) {
 	if (combinedFrames.length === 0) {
 		for (let i = 0; i < 4; i++) {
 			combinedFrames.push({
-				key: 'squirrel_idle_anim',
+				key: getStageSpriteKey('idle'),
 				frame: i
 			});
 		}
@@ -1536,7 +1685,7 @@ function createCombinedAnimation(activeStates, stateKey) {
 	
 	// Play the combined animation
 	pet.stop();
-	pet.setTexture('squirrel_idle_anim'); // Use any sprite sheet as base texture
+	pet.setTexture(getStageSpriteKey('idle')); // Use stage-based base texture
 	pet.play(animationKey);
 }
 
@@ -1557,8 +1706,8 @@ function changePetState(newState) {
 		pet.stop();
 		
 		// Set to animated sprite texture and start animation
-		pet.setTexture('squirrel_idle_anim');
-		pet.play('squirrel_idle_animation');
+		pet.setTexture(getStageSpriteKey('idle'));
+		pet.play(getStageAnimationKey('idle'));
 		
 		console.log('Animated idle state activated');
 	} else if (newState === 'hungry') {
@@ -1569,8 +1718,8 @@ function changePetState(newState) {
 		pet.stop();
 		
 		// Set to animated sprite texture and start animation
-		pet.setTexture('squirrel_hungry_anim');
-		pet.play('squirrel_hungry_animation');
+		pet.setTexture(getStageSpriteKey('hungry'));
+		pet.play(getStageAnimationKey('hungry'));
 		
 		console.log('Animated hungry state activated');
 	} else if (newState === 'sleeping') {
@@ -1581,8 +1730,8 @@ function changePetState(newState) {
 		pet.stop();
 		
 		// Set to animated sprite texture and start animation
-		pet.setTexture('squirrel_sleeping_anim');
-		pet.play('squirrel_sleeping_animation');
+		pet.setTexture(getStageSpriteKey('sleeping'));
+		pet.play(getStageAnimationKey('sleeping'));
 		
 		console.log('Animated sleeping state activated');
 	} else if (newState === 'dirty') {
@@ -1593,8 +1742,8 @@ function changePetState(newState) {
 		pet.stop();
 		
 		// Set to animated sprite texture and start animation
-		pet.setTexture('squirrel_dirty_anim');
-		pet.play('squirrel_dirty_animation');
+		pet.setTexture(getStageSpriteKey('dirty'));
+		pet.play(getStageAnimationKey('dirty'));
 		
 		console.log('Animated dirty state activated');
 	} else {

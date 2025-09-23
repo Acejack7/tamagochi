@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, request, flash, jsonify
+from flask import Blueprint, render_template, redirect, url_for, request, flash, jsonify, session
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 
@@ -563,6 +563,10 @@ def get_pet_stats():
 			"coins": current_user.inventory.coins
 		}
 	
+	# Maturity info
+	stage = pet.compute_maturity_stage()
+	next_change_dt = pet.compute_next_maturity_change()
+
 	return jsonify({
 		"success": True,
 		"is_sleeping": pet.is_sleeping,
@@ -574,6 +578,10 @@ def get_pet_stats():
 		"wash_start_time": pet.wash_start_time.isoformat() if pet.wash_start_time else None,
 		"wash_end_time": pet.wash_end_time.isoformat() if pet.wash_end_time else None,
 		"inventory": inventory_data,
+		"maturity": {
+			"stage": stage,
+			"next_change_time": next_change_dt.isoformat() if next_change_dt else None
+		},
 		"stats": {
 			"hunger": pet.hunger,
 			"happiness": pet.happiness,
@@ -842,4 +850,60 @@ def pet_test_action():
 		}
 	})
 
+
+# Debug maturity controls
+@bp.route("/api/pet/maturity", methods=["POST"])
+@login_required
+def set_maturity_stage():
+	if not current_user.pet:
+		return jsonify({"error": "No pet found"}), 404
+
+	action = request.json.get("action")  # 'up' | 'down' | 'set'
+	stage = request.json.get("stage")    # optional when action == 'set'
+	if action not in ["up", "down", "set"]:
+		return jsonify({"error": "Invalid action"}), 400
+
+	pet = current_user.pet
+	current_stage = pet.compute_maturity_stage()
+
+	from datetime import timedelta
+	# Calculate desired stage index
+	from .constants import MATURITY_ORDER, MATURITY_DURATIONS_DAYS
+	idx = MATURITY_ORDER.index(current_stage)
+
+	if action == 'up' and idx < len(MATURITY_ORDER) - 1:
+		desired_idx = idx + 1
+	elif action == 'down' and idx > 0:
+		desired_idx = idx - 1
+	elif action == 'set':
+		if stage not in MATURITY_ORDER:
+			return jsonify({"error": "Invalid stage"}), 400
+		desired_idx = MATURITY_ORDER.index(stage)
+	else:
+		desired_idx = idx
+
+	# Adjust created_at to simulate stage
+	child_days = MATURITY_DURATIONS_DAYS.get("child") or 0
+	teen_days = MATURITY_DURATIONS_DAYS.get("teen") or 0
+	if desired_idx == 0:  # child
+		pet.created_at = datetime.utcnow() - timedelta(hours=1)
+	elif desired_idx == 1:  # teen -> just past child duration
+		pet.created_at = datetime.utcnow() - timedelta(days=child_days, hours=1)
+	else:  # adult -> past child+teen
+		pet.created_at = datetime.utcnow() - timedelta(days=child_days + teen_days, hours=1)
+
+	# Return updated maturity info
+	stage = pet.compute_maturity_stage()
+	next_change_dt = pet.compute_next_maturity_change()
+
+	from .extensions import db
+	db.session.commit()
+
+	return jsonify({
+		"success": True,
+		"maturity": {
+			"stage": stage,
+			"next_change_time": next_change_dt.isoformat() if next_change_dt else None
+		}
+	})
 

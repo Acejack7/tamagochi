@@ -7,6 +7,15 @@ Centralizes all magic numbers and configuration values.
 PET_TYPES = ["hedgehog", "hamster", "squirrel"]
 FOOD_TYPES = ["tree_seed", "blueberries", "mushroom", "acorn"]
 
+# Maturity Configuration (dev/testing values)
+# Each stage lasts 1 real day for now; adult is indefinite
+MATURITY_ORDER = ["child", "teen", "adult"]
+MATURITY_DURATIONS_DAYS = {
+    "child": 1,
+    "teen": 1,
+    "adult": None  # No end
+}
+
 # Stat Configuration
 STAT_DECAY_RATES = {
     'normal': 8.33,      # Points per hour during normal activity
