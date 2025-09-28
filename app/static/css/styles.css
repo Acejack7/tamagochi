@@ -484,12 +484,14 @@ main {
 	gap: 20px;
 	width: 100%;
 	max-width: 1200px;
+	margin: 0 auto;
 }
 
 .game-layout {
 	display: flex;
 	gap: 20px;
 	align-items: flex-start;
+	justify-content: center;
 }
 
 .game-area {
@@ -502,7 +504,7 @@ main {
 }
 
 .game-sidebar {
-	width: 300px;
+    width: 390px; /* ~30% wider than previous 300px */
 	display: flex;
 	flex-direction: column;
 	gap: 16px;

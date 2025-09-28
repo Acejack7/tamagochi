@@ -54,6 +54,35 @@ def create_app() -> Flask:
 			db.session.execute(text("ALTER TABLE users ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT 0"))
 			db.session.commit()
 
+		# Pets table new columns for feed/play state
+		pet_cols = {c['name'] for c in insp.get_columns('pets')}
+		if 'is_feeding' not in pet_cols:
+			db.session.execute(text("ALTER TABLE pets ADD COLUMN is_feeding BOOLEAN NOT NULL DEFAULT 0"))
+			db.session.commit()
+			pet_cols.add('is_feeding')
+		if 'feed_start_time' not in pet_cols:
+			db.session.execute(text("ALTER TABLE pets ADD COLUMN feed_start_time DATETIME"))
+			db.session.commit()
+		if 'feed_type' not in pet_cols:
+			db.session.execute(text("ALTER TABLE pets ADD COLUMN feed_type VARCHAR(30)"))
+			db.session.commit()
+		if 'feed_end_time' not in pet_cols:
+			db.session.execute(text("ALTER TABLE pets ADD COLUMN feed_end_time DATETIME"))
+			db.session.commit()
+		if 'is_playing' not in pet_cols:
+			db.session.execute(text("ALTER TABLE pets ADD COLUMN is_playing BOOLEAN NOT NULL DEFAULT 0"))
+			db.session.commit()
+			pet_cols.add('is_playing')
+		if 'play_start_time' not in pet_cols:
+			db.session.execute(text("ALTER TABLE pets ADD COLUMN play_start_time DATETIME"))
+			db.session.commit()
+		if 'play_type' not in pet_cols:
+			db.session.execute(text("ALTER TABLE pets ADD COLUMN play_type VARCHAR(30)"))
+			db.session.commit()
+		if 'play_end_time' not in pet_cols:
+			db.session.execute(text("ALTER TABLE pets ADD COLUMN play_end_time DATETIME"))
+			db.session.commit()
+
 		# Seed admin: mark 'test' user as admin if present
 		from .models import User
 		test_user = User.query.filter_by(username='test').first()

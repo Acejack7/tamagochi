@@ -271,11 +271,20 @@ class AnimationManager {
 		// Set state
 		window[config.stateVar] = true;
 		
-		// Calculate end time
-		const now = new Date();
-		const duration = this.getDuration(animationType, subType);
-		const calculatedEndTime = new Date(now.getTime() + duration);
-		window[config.endTimeVar] = calculatedEndTime;
+		// Calculate or use provided end time
+		let finalEndTime;
+		if (endTime) {
+			// Accept ISO or local; normalize to Date
+			finalEndTime = new Date(endTime + (typeof endTime === 'string' && endTime.endsWith('Z') ? '' : (typeof endTime === 'string' ? 'Z' : '')));
+			if (Number.isNaN(finalEndTime.getTime())) {
+				finalEndTime = new Date(endTime);
+			}
+		} else {
+			const now = new Date();
+			const duration = this.getDuration(animationType, subType);
+			finalEndTime = new Date(now.getTime() + duration);
+		}
+		window[config.endTimeVar] = finalEndTime;
 		
 		// Show overlay
 		const overlay = document.getElementById(config.overlayId);
@@ -662,12 +671,30 @@ async function handleUnifiedAction(actionType, actionSubType) {
 				updateInventoryDisplay(data.inventory);
 			}
 			
-			// Handle frontend-managed animations (feed, play only)
-			if (['feed', 'play'].includes(actionType)) {
-				const now = new Date();
-				const endTime = new Date(now.getTime() + animationManager.getDuration(actionType, actionSubType));
-				animationManager.showOverlay(actionType, actionSubType, endTime.toISOString());
-			}
+            // Handle frontend-managed animations (feed, play only)
+            // Prefer backend-provided end-time when available to prevent refresh bypass
+            if (actionType === 'feed') {
+                const endIso = data.feed_end_time || null;
+                const type = data.feed_type || actionSubType;
+                if (endIso) {
+                    animationManager.showOverlay('feed', type, endIso);
+                } else {
+                    const now = new Date();
+                    const endTime = new Date(now.getTime() + animationManager.getDuration('feed', type));
+                    animationManager.showOverlay('feed', type, endTime.toISOString());
+                }
+            }
+            if (actionType === 'play') {
+                const endIso = data.play_end_time || null;
+                const type = data.play_type || actionSubType;
+                if (endIso) {
+                    animationManager.showOverlay('play', type, endIso);
+                } else {
+                    const now = new Date();
+                    const endTime = new Date(now.getTime() + animationManager.getDuration('play', type));
+                    animationManager.showOverlay('play', type, endTime.toISOString());
+                }
+            }
 			
 			// Handle backend-managed overlay states (sleep, wash)
 			if (actionType === 'sleep' && data.is_sleeping && data.sleep_end_time) {
@@ -1001,6 +1028,22 @@ async function loadCurrentStats() {
 			} else {
 				console.log('🤔 Unexpected wash state combination');
 			}
+			
+			// Restore feed/play overlays if active on backend
+			if (data.is_feeding && data.feed_end_time) {
+				const now = new Date();
+				const end = new Date(data.feed_end_time + (data.feed_end_time.endsWith('Z') ? '' : 'Z'));
+				if (end > now) {
+					animationManager.showOverlay('feed', data.feed_type || 'food', end.toISOString());
+				}
+			}
+			if (data.is_playing && data.play_end_time) {
+				const now = new Date();
+				const end = new Date(data.play_end_time + (data.play_end_time.endsWith('Z') ? '' : 'Z'));
+				if (end > now) {
+					animationManager.showOverlay('play', data.play_type || 'play', end.toISOString());
+				}
+			}
 		}
 	} catch (error) {
 		console.error('Failed to load stats:', error);
@@ -1097,6 +1140,33 @@ function setupActionButtons() {
 			await changeMaturity('up');
 		});
 	}
+
+	// Setup test/debug stat buttons (reduce hunger/energy/cleanliness/joy)
+	const testButtons = document.querySelectorAll('.test-buttons .test-btn');
+	testButtons.forEach(btn => {
+		const testAction = btn.dataset.test;
+		if (!testAction) return;
+		btn.addEventListener('click', async (e) => {
+			e.preventDefault();
+			try {
+				const response = await fetch('/api/pet/test-action', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ test_action: testAction })
+				});
+				const data = await response.json();
+				if (data && data.success && data.stats) {
+					updateStatsDisplay(data.stats);
+					showActionFeedback('Test action', true);
+				} else {
+					showActionFeedback('Test action', false, (data && data.error) || 'Failed');
+				}
+			} catch (err) {
+				console.error('Test action failed:', err);
+				showActionFeedback('Test action', false, 'Network error');
+			}
+		});
+	});
 	if (maturityDown) {
 		maturityDown.addEventListener('click', async () => {
 			await changeMaturity('down');

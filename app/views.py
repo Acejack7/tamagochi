@@ -44,6 +44,12 @@ def handle_feed_action(pet, request_data):
 	pet.last_fed = datetime.utcnow()
 	pet.hunger = round(pet.hunger, 1)
 	
+	# Mark feeding state so frontend can restore animation on refresh
+	from datetime import timedelta
+	pet.is_feeding = True
+	pet.feed_start_time = datetime.utcnow()
+	pet.feed_type = food_type
+	pet.feed_end_time = pet.feed_start_time + timedelta(seconds=5)
 	print(f"FEED DEBUG: {food_type} - Hunger: {old_hunger} -> {pet.hunger} (+{hunger_increase}), Inventory: {food_quantity} -> {food_quantity - 1}")
 	
 	return {
@@ -62,7 +68,11 @@ def handle_feed_action(pet, request_data):
 			"happiness": pet.happiness,
 			"cleanliness": pet.cleanliness,
 			"energy": pet.energy
-		}
+		},
+		"is_feeding": pet.is_feeding,
+		"feed_type": pet.feed_type,
+		"feed_start_time": pet.feed_start_time.isoformat() if pet.feed_start_time else None,
+		"feed_end_time": pet.feed_end_time.isoformat() if pet.feed_end_time else None
 	}
 
 
@@ -88,6 +98,12 @@ def handle_play_action(pet, request_data):
 	pet.last_played = datetime.utcnow()
 	pet.happiness = round(pet.happiness, 1)
 	
+	# Mark playing state so frontend can restore animation on refresh
+	from datetime import timedelta
+	pet.is_playing = True
+	pet.play_start_time = datetime.utcnow()
+	pet.play_type = play_type
+	pet.play_end_time = pet.play_start_time + timedelta(seconds=10)
 	print(f"PLAY DEBUG: {play_type} - Joy: {old_happiness} -> {pet.happiness} (+{joy_increase})")
 	
 	return {
@@ -99,7 +115,11 @@ def handle_play_action(pet, request_data):
 			"happiness": pet.happiness,
 			"cleanliness": pet.cleanliness,
 			"energy": pet.energy
-		}
+		},
+		"is_playing": pet.is_playing,
+		"play_type": pet.play_type,
+		"play_start_time": pet.play_start_time.isoformat() if pet.play_start_time else None,
+		"play_end_time": pet.play_end_time.isoformat() if pet.play_end_time else None
 	}
 
 
@@ -330,8 +350,14 @@ def pet_action():
 		pet.last_fed = datetime.utcnow()
 		pet.hunger = round(pet.hunger, 1)
 		
+		# Persist feeding state for refresh-safe animation (5s)
+		pet.is_feeding = True
+		pet.feed_start_time = datetime.utcnow()
+		pet.feed_type = food_type
+		pet.feed_end_time = pet.feed_start_time + timedelta(seconds=5)
 		print(f"FEED DEBUG: {food_type} - Hunger: {old_hunger} -> {pet.hunger} (+{hunger_increase}), Inventory: {food_quantity} -> {food_quantity - 1}")
 		
+
 		# Commit the changes immediately for feed action
 		db.session.commit()
 		
@@ -351,8 +377,12 @@ def pet_action():
 				"hunger": pet.hunger,
 				"happiness": pet.happiness,
 				"cleanliness": pet.cleanliness,
-				"energy": pet.energy
-			}
+			"energy": pet.energy
+			},
+			"is_feeding": pet.is_feeding,
+			"feed_type": pet.feed_type,
+			"feed_start_time": pet.feed_start_time.isoformat() if pet.feed_start_time else None,
+			"feed_end_time": pet.feed_end_time.isoformat() if pet.feed_end_time else None
 		})
 	elif action == "play":
 		# Get play type from request
@@ -375,6 +405,12 @@ def pet_action():
 		pet.happiness = round(pet.happiness, 1)
 		
 		print(f"PLAY DEBUG: {play_type} - Joy: {old_happiness} -> {pet.happiness} (+25)")
+		# Mark playing state
+		pet.is_playing = True
+		pet.play_start_time = datetime.utcnow()
+		pet.play_type = play_type
+		pet.play_end_time = pet.play_start_time + timedelta(seconds=20 if play_type == 'spin_in_wheel' else 10)
+
 	elif action == "wash":
 		# Get wash type from request
 		wash_type = request.json.get("wash_type")
@@ -516,7 +552,15 @@ def pet_action():
 			"happiness": pet.happiness,
 			"cleanliness": pet.cleanliness,
 			"energy": pet.energy
-		}
+		},
+		"is_feeding": pet.is_feeding,
+		"feed_type": pet.feed_type,
+		"feed_start_time": pet.feed_start_time.isoformat() if pet.feed_start_time else None,
+		"feed_end_time": pet.feed_end_time.isoformat() if pet.feed_end_time else None,
+		"is_playing": pet.is_playing,
+		"play_type": pet.play_type,
+		"play_start_time": pet.play_start_time.isoformat() if pet.play_start_time else None,
+		"play_end_time": pet.play_end_time.isoformat() if pet.play_end_time else None
 	})
 
 
@@ -546,6 +590,11 @@ def get_pet_stats():
 	if pet.is_washing:
 		pet.check_wash_finish()
 		db.session.commit()
+
+	# Ensure feed/play states are cleared if ended
+	pet.check_feed_finish()
+	pet.check_play_finish()
+	db.session.commit()
 	
 	# Only update stats if at least 30 seconds have passed since any action
 	if time_since_last_action >= 30:
@@ -574,6 +623,15 @@ def get_pet_stats():
 		"sleep_start_time": pet.sleep_start_time.isoformat() if pet.sleep_start_time else None,
 		"sleep_end_time": pet.sleep_end_time.isoformat() if pet.sleep_end_time else None,
 		"is_washing": pet.is_washing,
+		# Feed/play states for refresh-safe animations
+		"is_feeding": pet.is_feeding,
+		"feed_type": pet.feed_type,
+		"feed_start_time": pet.feed_start_time.isoformat() if pet.feed_start_time else None,
+		"feed_end_time": pet.feed_end_time.isoformat() if pet.feed_end_time else None,
+		"is_playing": pet.is_playing,
+		"play_type": pet.play_type,
+		"play_start_time": pet.play_start_time.isoformat() if pet.play_start_time else None,
+		"play_end_time": pet.play_end_time.isoformat() if pet.play_end_time else None,
 		"wash_type": pet.wash_type,
 		"wash_start_time": pet.wash_start_time.isoformat() if pet.wash_start_time else None,
 		"wash_end_time": pet.wash_end_time.isoformat() if pet.wash_end_time else None,

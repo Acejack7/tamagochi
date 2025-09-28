@@ -63,6 +63,18 @@ class Pet(db.Model):
 	wash_type = db.Column(db.String(15), nullable=True)  # 'wash_hands', 'shower', or 'bath'
 	wash_end_time = db.Column(db.DateTime, nullable=True)
 
+	# Feed state tracking (frontend duration persistence)
+	is_feeding = db.Column(db.Boolean, nullable=False, default=False)
+	feed_start_time = db.Column(db.DateTime, nullable=True)
+	feed_type = db.Column(db.String(30), nullable=True)
+	feed_end_time = db.Column(db.DateTime, nullable=True)
+
+	# Play state tracking (frontend duration persistence)
+	is_playing = db.Column(db.Boolean, nullable=False, default=False)
+	play_start_time = db.Column(db.DateTime, nullable=True)
+	play_type = db.Column(db.String(30), nullable=True)
+	play_end_time = db.Column(db.DateTime, nullable=True)
+
 	# Relationships
 	owner = db.relationship("User", back_populates="pet")
 
@@ -196,6 +208,30 @@ class Pet(db.Model):
 		self.wash_type = None
 		self.wash_end_time = None
 		print("WASH DEBUG: Pet has finished washing")
+
+	def check_feed_finish(self):
+		"""Clear feeding state if finished"""
+		if not self.is_feeding or not self.feed_end_time:
+			return
+		now = datetime.utcnow()
+		if now >= self.feed_end_time:
+			print("FEED DEBUG: Feeding finished")
+			self.is_feeding = False
+			self.feed_start_time = None
+			self.feed_type = None
+			self.feed_end_time = None
+
+	def check_play_finish(self):
+		"""Clear playing state if finished"""
+		if not self.is_playing or not self.play_end_time:
+			return
+		now = datetime.utcnow()
+		if now >= self.play_end_time:
+			print("PLAY DEBUG: Playing finished")
+			self.is_playing = False
+			self.play_start_time = None
+			self.play_type = None
+			self.play_end_time = None
 
 
 class Inventory(db.Model):
