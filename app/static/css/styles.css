@@ -276,16 +276,57 @@ body {
 	font-size: 14px;
 }
 
+.brand-title {
+	margin: 0;
+	font-size: 42px;
+	font-weight: 800;
+	letter-spacing: 1.5px;
+	text-transform: uppercase;
+	font-family: "Comic Sans MS", "Comic Sans", cursive;
+	background: linear-gradient(90deg, #7c3aed 0%, #2563eb 50%, #10b981 100%);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+	text-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
 main {
 	display: flex;
 	justify-content: center;
 	padding: 16px;
 }
 
-#game-container {
-	border: 3px solid #ff0000;
-	box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+/* Landing page */
+.landing {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 20px;
 }
+
+.cta-btn {
+	display: inline-block;
+	padding: 10px 16px;
+	border-radius: 8px;
+	font-weight: 600;
+	text-decoration: none;
+	box-shadow: var(--shadow-sm);
+	transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.cta-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.cta-primary { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #fff; }
+.cta-secondary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
+
+.landing-hero { text-align: center; margin-top: 10px; }
+.landing-title { margin: 0; font-size: 28px; }
+.landing-subtitle { margin: 6px 0 12px; color: var(--text-secondary); }
+.landing-actions { display: flex; gap: 12px; justify-content: center; }
+
+.landing-gallery { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
+.pet-card { display: flex; flex-direction: column; align-items: center; gap: 8px; background: #fff; padding: 12px; border-radius: 12px; box-shadow: var(--shadow-sm); }
+.pet-card img { width: 256px; height: 256px; object-fit: contain; }
+.pet-card span { color: #444; font-weight: 600; }
 
 .auth-nav {
 	display: flex;

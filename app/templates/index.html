@@ -4,29 +4,38 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<title>Tamagochi</title>
-	<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
-	<script src="{{ url_for('static', filename='js/phaser.min.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
 </head>
 <body>
-	<header class="site-header">
-		<h1>Tamagochi</h1>
-		<p class="subtitle">Flask + Phaser starter</p>
-	</header>
+    <header class="site-header">
+        <h1 class="brand-title">TAMAGOCHI</h1>
+    </header>
+    <main class="landing">
+        <section class="landing-hero">
+            <h2 class="landing-title">Take care of your virtual friend</h2>
+            <p class="landing-subtitle">Feed, wash, play and help it grow.</p>
+            <div class="landing-actions">
+                <a href="{{ url_for('auth.login') }}" class="cta-btn cta-primary">Start Playing</a>
+                <a href="{{ url_for('auth.request_access') }}" class="cta-btn cta-secondary">Request Access</a>
+            </div>
+        </section>
 
-	<main>
-		<nav class="auth-nav">
-			{% if current_user.is_authenticated %}
-				<span class="welcome">Hello, {{ current_user.username }}!</span>
-				<a href="{{ url_for('auth.logout') }}">Logout</a>
-            {% else %}
-                <a href="{{ url_for('auth.login') }}">Login</a>
-                <a href="{{ url_for('auth.request_access') }}">Request Access</a>
-            {% endif %}
-		</nav>
-		<div id="game-container"></div>
+        <section class="landing-gallery">
+            <div class="pet-card">
+                <img src="{{ url_for('static', filename='sprites/squirrel_happy.png') }}" alt="Squirrel" width="256" height="256" />
+                <span>Squirrel</span>
+            </div>
+            <div class="pet-card">
+                <img src="{{ url_for('static', filename='sprites/sheets/placeholder_sprite.png') }}" alt="Hedgehog (placeholder)" width="256" height="256" />
+                <span>Hedgehog</span>
+            </div>
+            <div class="pet-card">
+                <img src="{{ url_for('static', filename='sprites/sheets/placeholder_sprite.png') }}" alt="Hamster (placeholder)" width="256" height="256" />
+                <span>Hamster</span>
+            </div>
+        </section>
 	</main>
 
-	<script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>
 
