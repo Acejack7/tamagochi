@@ -489,22 +489,34 @@ class TimerUtility {
 		// Calculate progress
 		const totalDurationMs = config.totalDuration;
 		const elapsedMs = totalDurationMs - timeRemaining;
-		const progressPercent = Math.min(100, Math.max(0, (elapsedMs / totalDurationMs) * 100));
+		const rawPercent = Math.min(100, Math.max(0, (elapsedMs / totalDurationMs) * 100));
+		
+		// Snap displayed progress to whole-second steps to avoid 61%, 71%, etc.
+		// We compute based on elapsed/remaining whole seconds so a 10s timer shows 10%, 20%, ...
+		const totalSeconds = Math.max(1, Math.round(totalDurationMs / 1000));
+		const remainingSeconds = Math.ceil(timeRemaining / 1000);
+		const elapsedSeconds = Math.max(0, totalSeconds - remainingSeconds);
+		const steppedPercent = Math.min(100, Math.max(0, (elapsedSeconds / totalSeconds) * 100));
+		
+		// Use stepped percent for display (text + width) for consistent UX
+		const displayPercent = steppedPercent;
 		
 		// Update progress bar
 		if (config.progressFillId) {
 			const progressFill = document.getElementById(config.progressFillId);
 			const progressText = document.getElementById(config.progressTextId);
 			if (progressFill && progressText) {
-				progressFill.style.width = `${progressPercent}%`;
-				progressText.textContent = `${Math.round(progressPercent)}%`;
+				progressFill.style.width = `${displayPercent}%`;
+				progressText.textContent = `${Math.round(displayPercent)}%`;
 			}
 		}
 		
 		// Update timer display
 		if (config.timerId) {
-			const minutes = Math.floor(timeRemaining / 60000);
-			const seconds = Math.floor((timeRemaining % 60000) / 1000);
+			// Use ceiling for remaining seconds so 0:01 is shown until completion
+			const totalSeconds = Math.ceil(timeRemaining / 1000);
+			const minutes = Math.floor(totalSeconds / 60);
+			const seconds = totalSeconds % 60;
 			const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
 			
 			const timerElement = document.getElementById(config.timerId);
@@ -519,11 +531,13 @@ class TimerUtility {
 			const simpleCountdown = document.getElementById(config.simpleCountdownId);
 			
 			if (simpleProgressFill) {
-				simpleProgressFill.style.width = `${progressPercent}%`;
+				simpleProgressFill.style.width = `${displayPercent}%`;
 			}
 			if (simpleCountdown) {
-				const minutes = Math.floor(timeRemaining / 60000);
-				const seconds = Math.floor((timeRemaining % 60000) / 1000);
+				// Ceiling here as well to avoid showing 0:00 prematurely
+				const totalSeconds = Math.ceil(timeRemaining / 1000);
+				const minutes = Math.floor(totalSeconds / 60);
+				const seconds = totalSeconds % 60;
 				const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
 				simpleCountdown.textContent = timeString;
 			}
