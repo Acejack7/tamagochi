@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Request Access - Tamagochi</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+</head>
+<body>
+    <header class="site-header">
+        <h1>Request Access</h1>
+    </header>
+    <main>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="flashes">
+                    {% for category, message in messages %}
+                        <li class="flash {{ category }}">{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+        <form method="post" class="auth-form" style="max-width:420px; margin:0 auto;">
+            <label>
+                <span>Your Email</span>
+                <input type="email" name="email" required autofocus />
+            </label>
+            <label>
+                <span>Message (optional)</span>
+                <textarea name="message" rows="4" placeholder="Tell us who you are and why you want access"></textarea>
+            </label>
+            <button type="submit">Send Request</button>
+        </form>
+        <div style="text-align:center; margin-top: 18px;">
+            <a class="base-cancel-btn" href="{{ url_for('auth.login') }}">Back to Login</a>
+        </div>
+    </main>
+</body>
+}</n>
+
+

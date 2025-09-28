@@ -19,6 +19,9 @@ class User(db.Model, UserMixin):
 	id = db.Column(db.Integer, primary_key=True)
 	username = db.Column(db.String(80), unique=True, nullable=False, index=True)
 	password_hash = db.Column(db.String(255), nullable=False)
+	# Admin and security flags
+	is_admin = db.Column(db.Boolean, nullable=False, default=False)
+	must_change_password = db.Column(db.Boolean, nullable=False, default=False)
 	created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 	pet = db.relationship("Pet", back_populates="owner", uselist=False)
 	inventory = db.relationship("Inventory", back_populates="owner", uselist=False)
@@ -273,6 +276,24 @@ class Inventory(db.Model):
 		"""Get maximum quantity user can afford at given price"""
 		return self.coins // price_per_unit
 
+
+class AccessRequest(db.Model):
+	__tablename__ = "access_requests"
+
+	id = db.Column(db.Integer, primary_key=True)
+	email = db.Column(db.String(255), nullable=False, index=True)
+	message = db.Column(db.Text, nullable=True)
+	created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+	processed = db.Column(db.Boolean, nullable=False, default=False)
+
+	def to_dict(self) -> dict:
+		return {
+			"id": self.id,
+			"email": self.email,
+			"message": self.message or "",
+			"created_at": self.created_at.isoformat(),
+			"processed": self.processed
+		}
 
 @login_manager.user_loader
 def load_user(user_id: str) -> Optional[User]:

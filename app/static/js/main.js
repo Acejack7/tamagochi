@@ -1078,6 +1078,17 @@ function setupActionButtons() {
 	// Setup buy buttons
 	setupBuyButtons();
 
+	// Admin create user modal controls (if present)
+	const adminBtn = document.getElementById('admin-create-user-btn');
+	const adminModal = document.getElementById('admin-create-user-modal');
+	const closeAdminBtn = document.getElementById('close-admin-create');
+	if (adminBtn && adminModal) {
+		adminBtn.addEventListener('click', () => { adminModal.style.display = 'flex'; });
+	}
+	if (closeAdminBtn && adminModal) {
+		closeAdminBtn.addEventListener('click', () => { adminModal.style.display = 'none'; });
+	}
+
 	// Setup maturity debug buttons
 	const maturityUp = document.getElementById('maturity-up');
 	const maturityDown = document.getElementById('maturity-down');

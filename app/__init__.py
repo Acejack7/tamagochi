@@ -36,10 +36,30 @@ def create_app() -> Flask:
 	from .auth import bp as auth_bp
 	app.register_blueprint(auth_bp, url_prefix="/auth")
 
-	# Create tables if not present (dev convenience)
+	# Create tables and run lightweight migrations
 	with app.app_context():
 		from . import models  # noqa: F401
 		db.create_all()
+
+		# Lightweight migration for SQLite: add missing columns if needed
+		from sqlalchemy import inspect, text
+		insp = inspect(db.engine)
+		cols = {c['name'] for c in insp.get_columns('users')}
+		if 'is_admin' not in cols:
+			# Add with default 0
+			db.session.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0"))
+			db.session.commit()
+			cols.add('is_admin')
+		if 'must_change_password' not in cols:
+			db.session.execute(text("ALTER TABLE users ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT 0"))
+			db.session.commit()
+
+		# Seed admin: mark 'test' user as admin if present
+		from .models import User
+		test_user = User.query.filter_by(username='test').first()
+		if test_user and not getattr(test_user, 'is_admin', False):
+			test_user.is_admin = True
+			db.session.commit()
 
 	return app
 

@@ -20,6 +20,15 @@
 	</header>
 
 	<main class="game-main">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <ul class="flashes">
+                {% for category, message in messages %}
+                    <li class="flash {{ category }}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    {% endwith %}
 		<div class="game-layout">
 			<div class="game-area">
 			<div id="game-container"></div>
@@ -511,7 +520,32 @@
 					<button class="storage-btn" id="storage-btn">📦 Storage</button>
 					<button class="shop-btn" id="shop-btn">🛍️ Shop</button>
 					<button class="minigame-btn" id="minigame-btn" data-joy="{{ pet.happiness|default(50) }}">🎮 Minigames</button>
+				{% if current_user.is_admin %}
+				<button class="admin-btn" id="admin-create-user-btn">👤 Create User</button>
+				<a class="admin-btn" href="{{ url_for('auth.access_requests_admin') }}">📥 Access Requests</a>
+				<a class="admin-btn" href="{{ url_for('auth.admin_users') }}">🧑‍💼 Manage Users</a>
+				{% endif %}
 				</div>
+
+			{% if current_user.is_admin %}
+			<!-- Admin Create User Modal -->
+			<div id="admin-create-user-modal" class="storage-modal" style="display:none;">
+				<div class="storage-content">
+					<div class="storage-header">
+						<h3>👤 Create New User</h3>
+						<button class="close-btn" id="close-admin-create">&times;</button>
+					</div>
+					<form method="post" action="{{ url_for('auth.admin_create_user') }}" class="auth-form">
+						<label>
+							<span>Username</span>
+							<input type="text" name="username" required />
+						</label>
+						<button type="submit">Create</button>
+						<p class="storage-note">A temporary password will be generated and shown as a success message. The user must change it on first login.</p>
+					</form>
+				</div>
+			</div>
+			{% endif %}
 				
 				<!-- Test buttons for faster testing -->
 				<div class="test-buttons">

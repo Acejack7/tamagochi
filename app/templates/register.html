@@ -7,32 +7,22 @@
 	<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
 </head>
 <body>
-	<header class="site-header">
-		<h1>Register</h1>
-	</header>
-	<main>
-		{% with messages = get_flashed_messages(with_categories=true) %}
-			{% if messages %}
-				<ul class="flashes">
-					{% for category, message in messages %}
-						<li class="flash {{ category }}">{{ message }}</li>
-					{% endfor %}
-				</ul>
-			{% endif %}
-		{% endwith %}
-		<form method="post" class="auth-form">
-			<label>
-				<span>Username</span>
-				<input type="text" name="username" required autofocus />
-			</label>
-			<label>
-				<span>Password</span>
-				<input type="password" name="password" required />
-			</label>
-			<button type="submit">Create account</button>
-			<p>Already have an account? <a href="{{ url_for('auth.login') }}">Login</a></p>
-		</form>
-	</main>
+    <header class="site-header">
+        <h1>Registration Disabled</h1>
+    </header>
+    <main>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="flashes">
+                    {% for category, message in messages %}
+                        <li class="flash {{ category }}">{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+        <p style="text-align:center; margin-top: 20px;">Registration is closed. Please contact the administrator for access.</p>
+        <p style="text-align:center; margin-top: 10px;"><a href="{{ url_for('auth.login') }}">Back to Login</a></p>
+    </main>
 </body>
 </html>
 

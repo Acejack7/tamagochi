@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Manage Users - Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+</head>
+<body>
+    <header class="site-header">
+        <h1>Manage Users</h1>
+        <nav class="auth-nav"><a href="{{ url_for('main.index') }}">Back to Game</a></nav>
+    </header>
+    <main>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="flashes">
+                    {% for category, message in messages %}
+                        <li class="flash {{ category }}">{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+        <div class="storage-content" style="max-width:820px; margin:0 auto;">
+            <table class="table" style="width:100%; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th style="text-align:left; padding:8px; border-bottom:1px solid #ddd;">Username</th>
+                        <th style="text-align:left; padding:8px; border-bottom:1px solid #ddd;">Created</th>
+                        <th style="text-align:left; padding:8px; border-bottom:1px solid #ddd;">Admin</th>
+                        <th style="padding:8px; border-bottom:1px solid #ddd;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">{{ u.username }}</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">{{ u.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">{{ 'Yes' if u.is_admin else 'No' }}</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee; text-align:center;">
+                            {% if not u.is_admin %}
+                            <form method="post" action="{{ url_for('auth.admin_users') }}" onsubmit="return confirm('Delete user {{ u.username }}? This cannot be undone.');">
+                                <input type="hidden" name="user_id" value="{{ u.id }}" />
+                                <button type="submit">Delete</button>
+                            </form>
+                            {% else %}
+                            <span class="muted">Protected</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</body>
+</html>
+
+
