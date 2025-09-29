@@ -2517,8 +2517,8 @@ function updateShopDisplay(inventory) {
 }
 
 function updateQuantityLimits(coins) {
-	const foodItems = ['tree_seed', 'mushroom', 'blueberries'];
-	const prices = { tree_seed: 1, mushroom: 2, blueberries: 3 };
+	const foodItems = ['tree_seed', 'mushroom', 'blueberries', 'acorn'];
+	const prices = { tree_seed: 1, mushroom: 2, blueberries: 3, acorn: 6 };
 
 	foodItems.forEach(foodType => {
 		const price = prices[foodType];
@@ -2598,7 +2598,7 @@ function setupQuantitySelectors() {
 }
 
 function updateTotalCost(foodType) {
-	const prices = { tree_seed: 1, mushroom: 2, blueberries: 3 };
+	const prices = { tree_seed: 1, mushroom: 2, blueberries: 3, acorn: 6 };
 	const price = prices[foodType];
 	const qtyInput = document.getElementById(`qty-${foodType}`);
 	const totalElement = document.getElementById(`total-${foodType}`);
@@ -2627,9 +2627,11 @@ function setupBuyButtons() {
 }
 
 async function buyFood(foodType, quantity) {
+	// Get button reference outside try block so finally can access it
+	const buyButton = document.getElementById(`buy-${foodType}`);
+	
 	try {
 		// Disable button during purchase
-		const buyButton = document.getElementById(`buy-${foodType}`);
 		if (buyButton) {
 			buyButton.disabled = true;
 			buyButton.textContent = 'Buying...';
@@ -2651,6 +2653,9 @@ async function buyFood(foodType, quantity) {
 		if (data.success) {
 			// Update inventory and display
 			updateInventoryDisplay(data.inventory);
+			
+			// Update shop display (coin count and affordability)
+			updateShopDisplay(data.inventory);
 
 			// Show success message
 			showActionFeedback(`Bought ${quantity} ${foodType.replace('_', ' ')}!`, true);

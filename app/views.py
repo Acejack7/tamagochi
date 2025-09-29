@@ -142,8 +142,14 @@ def handle_wash_action(pet, request_data):
 	old_cleanliness = pet.cleanliness
 	now = datetime.utcnow()
 	
-	cleanliness_increase = WASH_VALUES[wash_type]
-	pet.cleanliness = min(100, pet.cleanliness + cleanliness_increase)
+	# Bath always restores to 100, others add their value
+	if wash_type == "bath":
+		pet.cleanliness = 100
+		cleanliness_increase = 100 - old_cleanliness
+	else:
+		cleanliness_increase = WASH_VALUES[wash_type]
+		pet.cleanliness = min(100, pet.cleanliness + cleanliness_increase)
+	
 	pet.last_bathed = datetime.utcnow()
 	pet.cleanliness = round(pet.cleanliness, 1)
 	
@@ -409,7 +415,7 @@ def pet_action():
 		pet.is_playing = True
 		pet.play_start_time = datetime.utcnow()
 		pet.play_type = play_type
-		pet.play_end_time = pet.play_start_time + timedelta(seconds=20 if play_type == 'spin_in_wheel' else 10)
+		pet.play_end_time = pet.play_start_time + timedelta(seconds=10)
 
 	elif action == "wash":
 		# Get wash type from request
@@ -436,8 +442,14 @@ def pet_action():
 			"bath": 80
 		}
 		
-		cleanliness_increase = wash_values[wash_type]
-		pet.cleanliness = min(100, pet.cleanliness + cleanliness_increase)
+		# Bath always restores to 100, others add their value
+		if wash_type == "bath":
+			pet.cleanliness = 100
+			cleanliness_increase = 100 - old_cleanliness
+		else:
+			cleanliness_increase = wash_values[wash_type]
+			pet.cleanliness = min(100, pet.cleanliness + cleanliness_increase)
+		
 		pet.last_bathed = datetime.utcnow()
 		pet.cleanliness = round(pet.cleanliness, 1)
 		
@@ -675,7 +687,8 @@ def shop_purchase():
 	prices = {
 		"tree_seed": 1,
 		"blueberries": 3,
-		"mushroom": 2
+		"mushroom": 2,
+		"acorn": 6
 	}
 
 	price_per_unit = prices[food_type]
