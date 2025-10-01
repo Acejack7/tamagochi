@@ -47,9 +47,9 @@ const PET_SPRITES = {
 		happy: 'squirrel_happy',
 		hungry: 'squirrel_hungry',
 		sleeping: 'squirrel_sleeping',
-		sad: 'squirrel_sad',
 		dirty: 'squirrel_dirty',
 		bored: 'squirrel_bored'
+		// Note: 'sad' state removed - not used in game logic
 	}
 };
 
@@ -386,6 +386,8 @@ class AnimationManager {
 			// Animation finished
 			console.log(`⏰ ${animationType} timer finished - hiding overlay`);
 			this.hideOverlay(animationType);
+			// Refresh stats to update sprite appearance
+			loadCurrentStats();
 			// Show menu again after animation completes
 			setTimeout(() => {
 				console.log(`${config.emoji} Showing ${config.menuType} menu after animation completion`);
@@ -746,45 +748,48 @@ function getCurrentStatValue(statName) {
 function preload() {
 	console.log('Preloading sprites...');
 	
-	// Load squirrel sprites
-	this.load.image('squirrel_idle', '/static/sprites/squirrel_idle.png');
-	this.load.image('squirrel_happy', '/static/sprites/squirrel_happy.png');
-	this.load.image('squirrel_hungry', '/static/sprites/squirrel_hungry.png');
-	this.load.image('squirrel_sleeping', '/static/sprites/squirrel_sleeping.png');
-	this.load.image('squirrel_sad', '/static/sprites/squirrel_sad.png');
+	// Load squirrel animation sprite sheets (adult default)
+	// Note: Static sprites removed - using sprite sheets only
 	
 	// Load squirrel idle animation sprite sheet (adult default)
-	this.load.spritesheet('squirrel_idle_anim', '/static/sprites/sheets/squirrel_idle_sprite.png', {
+	this.load.spritesheet('squirrel_idle_anim', '/static/sprites/sheets/squirrel/squirrel_idle_sprite.png', {
 		frameWidth: 256,
 		frameHeight: 256
 	});
 	
 	// Load squirrel hungry animation sprite sheet (adult default)
-	this.load.spritesheet('squirrel_hungry_anim', '/static/sprites/sheets/squirrel_hungry_sprite.png', {
+	this.load.spritesheet('squirrel_hungry_anim', '/static/sprites/sheets/squirrel/squirrel_hungry_sprite.png', {
 		frameWidth: 256,
 		frameHeight: 256
 	});
 	
 	// Load squirrel sleeping animation sprite sheet (adult default)
-	this.load.spritesheet('squirrel_sleeping_anim', '/static/sprites/sheets/squirrel_sleepy_sprite.png', {
+	this.load.spritesheet('squirrel_sleeping_anim', '/static/sprites/sheets/squirrel/squirrel_sleepy_sprite.png', {
 		frameWidth: 256,
 		frameHeight: 256
 	});
 	
 	// Load squirrel dirty animation sprite sheet (adult default)
-	this.load.spritesheet('squirrel_dirty_anim', '/static/sprites/sheets/squirrel_dirty_sprite.png', {
+	this.load.spritesheet('squirrel_dirty_anim', '/static/sprites/sheets/squirrel/squirrel_dirty_sprite.png', {
 		frameWidth: 256,
 		frameHeight: 256
 	});
 	
 	// Load squirrel bored animation sprite sheet (adult default)
-	this.load.spritesheet('squirrel_bored_anim', '/static/sprites/sheets/squirrel_bored_sprite.png', {
+	this.load.spritesheet('squirrel_bored_anim', '/static/sprites/sheets/squirrel/squirrel_bored_sprite.png', {
 		frameWidth: 256,
 		frameHeight: 256
 	});
 
+	// Placeholder sprite sheets
 	// Child/Teen placeholder sprite sheet (used for all states in early stages)
-	this.load.spritesheet('squirrel_placeholder_anim', '/static/sprites/sheets/placeholder_sprite.png', {
+	this.load.spritesheet('squirrel_placeholder_anim', '/static/sprites/sheets/squirrel/placeholder_sprite.png', {
+		frameWidth: 256,
+		frameHeight: 256
+	});
+	
+	// Happy state placeholder (until proper sprite is created)
+	this.load.spritesheet('squirrel_happy_anim', '/static/sprites/sheets/squirrel/placeholder_sprite.png', {
 		frameWidth: 256,
 		frameHeight: 256
 	});
@@ -849,6 +854,14 @@ function create() {
 		this.anims.create({
 			key: 'squirrel_idle_animation',
 			frames: this.anims.generateFrameNumbers('squirrel_idle_anim', { start: 0, end: 3 }),
+			frameRate: 0.65,
+			repeat: -1
+		});
+		
+		// Create happy animation (placeholder - 4 frames)
+		this.anims.create({
+			key: 'squirrel_happy_animation',
+			frames: this.anims.generateFrameNumbers('squirrel_happy_anim', { start: 0, end: 3 }),
 			frameRate: 0.65,
 			repeat: -1
 		});
@@ -1616,6 +1629,7 @@ function getStageSpriteKey(state) {
 	}
 	const mapping = {
 		'idle': 'squirrel_idle_anim',
+		'happy': 'squirrel_happy_anim',
 		'hungry': 'squirrel_hungry_anim',
 		'sleeping': 'squirrel_sleeping_anim',
 		'dirty': 'squirrel_dirty_anim',
@@ -1675,6 +1689,7 @@ function changePetStateMulti(activeStates, stateKey) {
 	// Map state names to their animation sprite sheet keys (stage-aware)
 	const stateToSpriteSheet = {
 		'idle': getStageSpriteKey('idle'),
+		'happy': getStageSpriteKey('happy'),
 		'hungry': getStageSpriteKey('hungry'),
 		'sleeping': getStageSpriteKey('sleeping'),
 		'dirty': getStageSpriteKey('dirty'),
@@ -2256,6 +2271,8 @@ function updateWashProgress() {
 		// Wash finished
 		console.log('⏰ Wash timer finished - hiding overlay');
 		hideWashOverlay();
+		// Refresh stats to update sprite appearance
+		loadCurrentStats();
 		// Show wash menu again after animation completes
 		setTimeout(() => {
 			console.log('🚿 Showing wash menu after animation completion');
@@ -2764,6 +2781,43 @@ document.addEventListener('DOMContentLoaded', function() {
 		}
 	});
 	
+	// Check minigame availability when modal opens
+	async function updateMinigameAvailability() {
+		try {
+			const response = await fetch('/api/minigame/availability');
+			const data = await response.json();
+			
+			if (data.success && data.minigames.higher_lower) {
+				const hlStatus = data.minigames.higher_lower;
+				const statusEl = document.getElementById('hl-status');
+				const playBtn = document.getElementById('hl-play-btn');
+				
+				if (statusEl && playBtn) {
+					statusEl.textContent = hlStatus.message;
+					
+					if (hlStatus.available) {
+						statusEl.style.color = '#28a745';
+						playBtn.style.background = '#28a745';
+						playBtn.disabled = false;
+					} else {
+						statusEl.style.color = '#dc3545';
+						playBtn.style.background = '#dc3545';
+						playBtn.disabled = true;
+					}
+				}
+			}
+		} catch (error) {
+			console.error('Failed to check minigame availability:', error);
+		}
+	}
+	
+	// Update availability when minigame modal opens
+	if (minigameBtn) {
+		minigameBtn.addEventListener('click', function() {
+			updateMinigameAvailability();
+		});
+	}
+	
 	// Play minigame buttons
 	document.querySelectorAll('.play-minigame-btn').forEach(btn => {
 		btn.addEventListener('click', function() {
@@ -2834,22 +2888,25 @@ document.addEventListener('DOMContentLoaded', function() {
 				document.getElementById('result-message').textContent = data.reward_message;
 				document.getElementById('result-message').className = 'result-message ' + (data.is_correct ? 'success' : 'error');
 				
-				if (data.is_correct) {
-					document.getElementById('result-reward').textContent = `+2 coins earned! Total: ${data.stats.coins} coins`;
-					document.getElementById('result-reward').className = 'result-reward coins';
-				} else {
+			if (data.is_correct) {
+				document.getElementById('result-reward').textContent = `+20 coins earned! Total: ${data.stats.coins} coins`;
+				document.getElementById('result-reward').className = 'result-reward coins';
+			} else {
 					document.getElementById('result-reward').textContent = `Joy decreased to ${data.stats.happiness}%`;
 					document.getElementById('result-reward').className = 'result-reward joy-loss';
 				}
 				
-				// Update global stats
-				updateMinigameButtonFromStats(data.stats);
-				
-				// Update inventory display if shop is open
-				if (window.currentInventory) {
-					window.currentInventory.coins = data.stats.coins;
-					updateInventoryDisplay();
-				}
+			// Update global stats
+			updateMinigameButtonFromStats(data.stats);
+			
+			// Update inventory display if shop is open
+			if (window.currentInventory) {
+				window.currentInventory.coins = data.stats.coins;
+				updateInventoryDisplay();
+			}
+			
+			// Update minigame availability status
+			updateMinigameAvailability();
 			} else {
 				// Show error
 				document.getElementById('result-number').textContent = '❌';
@@ -2868,8 +2925,24 @@ document.addEventListener('DOMContentLoaded', function() {
 	}
 	
 	// Play again button
-	document.getElementById('play-again-btn').addEventListener('click', function() {
-		// Reset game state
+	document.getElementById('play-again-btn').addEventListener('click', async function() {
+		// Check if game is still available
+		try {
+			const response = await fetch('/api/minigame/availability');
+			const data = await response.json();
+			
+			if (data.success && data.minigames.higher_lower && !data.minigames.higher_lower.available) {
+				// Game no longer available, close and show minigame menu
+				higherLowerGame.style.display = 'none';
+				minigameModal.style.display = 'flex';
+				updateMinigameAvailability();
+				return;
+			}
+		} catch (error) {
+			console.error('Failed to check availability:', error);
+		}
+		
+		// Reset game state if still available
 		document.getElementById('game-result').style.display = 'none';
 		document.querySelectorAll('.guess-btn').forEach(btn => btn.disabled = false);
 	});

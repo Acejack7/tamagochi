@@ -23,11 +23,32 @@ class User(db.Model, UserMixin):
 	is_admin = db.Column(db.Boolean, nullable=False, default=False)
 	must_change_password = db.Column(db.Boolean, nullable=False, default=False)
 	created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+	# Minigame tracking
+	last_played_higher_lower = db.Column(db.DateTime, nullable=True)
 	pet = db.relationship("Pet", back_populates="owner", uselist=False)
 	inventory = db.relationship("Inventory", back_populates="owner", uselist=False)
 
 	def get_id(self) -> str:
 		return str(self.id)
+	
+	def can_play_higher_lower(self, now: Optional[datetime] = None) -> bool:
+		"""Check if user can play Higher or Lower (once per day, resets at 6 AM server time)"""
+		now = now or datetime.utcnow()
+		
+		if not self.last_played_higher_lower:
+			return True
+		
+		# Get today's 6 AM reset time
+		reset_time_today = now.replace(hour=6, minute=0, second=0, microsecond=0)
+		
+		# If current time is before 6 AM, the reset was yesterday at 6 AM
+		if now.hour < 6:
+			reset_time = reset_time_today - timedelta(days=1)
+		else:
+			reset_time = reset_time_today
+		
+		# Can play if last played was before the most recent 6 AM reset
+		return self.last_played_higher_lower < reset_time
 
 
 class Pet(db.Model):

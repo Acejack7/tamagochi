@@ -1936,9 +1936,18 @@ bd.notification .notification-close:hover {
 }
 
 .play-minigame-btn:disabled {
-	background: #ccc;
 	cursor: not-allowed;
 	transform: none;
+	opacity: 0.9;
+}
+
+.play-minigame-btn:disabled:hover {
+	transform: none;
+	background: #dc3545; /* Keep red color on hover when disabled */
+}
+
+.minigame-status {
+	font-style: italic;
 }
 
 /* Minigame Game Content (for individual games) */

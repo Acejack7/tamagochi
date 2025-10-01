@@ -731,6 +731,23 @@ def shop_purchase():
 	})
 
 
+@bp.route("/api/minigame/availability", methods=["GET"])
+@login_required
+def minigame_availability():
+	"""Check which minigames are available to play"""
+	can_play_hl = current_user.can_play_higher_lower()
+	
+	return jsonify({
+		"success": True,
+		"minigames": {
+			"higher_lower": {
+				"available": can_play_hl,
+				"message": "Available to play!" if can_play_hl else "Already played today! Resets at 6:00 AM"
+			}
+		}
+	})
+
+
 @bp.route("/api/minigame/higher-lower", methods=["POST"])
 @login_required
 def minigame_higher_lower():
@@ -747,6 +764,10 @@ def minigame_higher_lower():
 	# Check joy requirement (minimum 40)
 	if current_user.pet.happiness < 40:
 		return jsonify({"error": "Joy too low! Need at least 40% to play minigames"}), 400
+	
+	# Check daily limit (once per day, resets at 6 AM)
+	if not current_user.can_play_higher_lower():
+		return jsonify({"error": "Already played today! Resets at 6:00 AM"}), 400
 	
 	# Get user's guess
 	guess = request.json.get("guess")
@@ -769,15 +790,18 @@ def minigame_higher_lower():
 	
 	# Apply consequences
 	if is_correct:
-		# Grant 2 coins
-		current_user.inventory.add_coins(2)
-		reward_message = f"Correct! You earned 2 coins! 🪙"
+		# Grant 20 coins
+		current_user.inventory.add_coins(20)
+		reward_message = f"Correct! You earned 20 coins! 🪙"
 	else:
 		# Reduce joy by 2 points
 		old_happiness = current_user.pet.happiness
 		current_user.pet.happiness = max(0, current_user.pet.happiness - 2)
 		current_user.pet.happiness = round(current_user.pet.happiness, 1)
 		reward_message = f"Wrong! Pet lost 2 joy points 😢"
+	
+	# Update last played timestamp
+	current_user.last_played_higher_lower = datetime.utcnow()
 	
 	# Commit changes
 	db.session.commit()

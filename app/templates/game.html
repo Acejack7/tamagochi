@@ -131,15 +131,16 @@
 						<button class="close-btn" id="close-minigame">&times;</button>
 					</div>
 					<div class="minigame-list">
-						<div class="minigame-item" data-game="higher_lower">
-							<div class="minigame-icon">🎲</div>
-							<div class="minigame-info">
-								<div class="minigame-name">Higher or Lower</div>
-								<div class="minigame-description">Guess if the number is higher or lower than 10</div>
-								<div class="minigame-requirement">Requires: Joy ≥ 40</div>
-							</div>
-							<button class="play-minigame-btn" data-game="higher_lower">Play</button>
+					<div class="minigame-item" data-game="higher_lower">
+						<div class="minigame-icon">🎲</div>
+						<div class="minigame-info">
+							<div class="minigame-name">Higher or Lower</div>
+							<div class="minigame-description">Guess if the number is higher or lower than 10 (Once per day)</div>
+							<div class="minigame-requirement">Requires: Joy ≥ 40</div>
+							<div class="minigame-status" id="hl-status" style="margin-top: 4px; font-size: 12px; font-weight: 600;"></div>
 						</div>
+						<button class="play-minigame-btn" id="hl-play-btn" data-game="higher_lower">Play</button>
+					</div>
 						<div class="minigame-item" data-game="labyrinth">
 							<div class="minigame-icon">🏃</div>
 							<div class="minigame-info">
